@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { JobRole } from "@extra/shared/types/job";
+import { CITY } from "@extra/shared/constants/city";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { jobRoleSchema } from "@extra/shared/schemas/job";
 import { listJobs } from "@/lib/api/jobs";
@@ -24,8 +25,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
       <section>
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Trabalho extra na sua região
+        {/* Nomeia a cidade em vez de "sua região": não existe seletor de
+            região, e o MVP atende uma cidade só. */}
+        <h1 className="text-balance text-2xl font-semibold tracking-tight">
+          Trabalho extra em {CITY}
         </h1>
         <p className="text-muted-foreground mt-3">
           Vagas por diária em cozinha, salão, limpeza, segurança e eventos. Você
@@ -78,12 +81,20 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   <JobCard key={job.id} job={job} />
                 ))}
               </ul>
-              {result.data.total > result.data.items.length && (
-                <p className="text-muted-foreground mt-4 text-sm">
-                  Mostrando {result.data.items.length} de {result.data.total}{" "}
-                  vagas abertas.
-                </p>
-              )}
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Link
+                  href={role ? `/vagas?funcao=${role}` : "/vagas"}
+                  className={cn(buttonVariants({ variant: "outline" }), "h-11")}
+                >
+                  Ver todas as vagas
+                </Link>
+                {result.data.total > result.data.items.length && (
+                  <p className="text-muted-foreground text-sm">
+                    Mostrando {result.data.items.length} de {result.data.total}{" "}
+                    vagas abertas.
+                  </p>
+                )}
+              </div>
             </>
           )}
         </div>

@@ -60,6 +60,21 @@ export async function getJobBySlug(
 }
 
 /**
+ * Bairros que têm vaga aberta agora, em ordem alfabética. O filtro só oferece
+ * o que leva a algum resultado — bairro sem vaga vira beco sem saída.
+ */
+export async function listOpenJobNeighborhoods(): Promise<ApiResult<string[]>> {
+  return withMock(() => {
+    const neighborhoods = new Set(
+      store.jobPosts
+        .filter((job) => job.status === "open")
+        .map((job) => job.neighborhood),
+    );
+    return ok([...neighborhoods].sort((a, b) => a.localeCompare(b, "pt-BR")));
+  });
+}
+
+/**
  * O mesmo schema que valida o formulário valida aqui — inclusive o filtro de
  * linguagem discriminatória do §14.1, que o cliente sozinho contornaria.
  */

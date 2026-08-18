@@ -13,7 +13,7 @@ export function JobCard({ job }: { job: JobPost }) {
     <li>
       <Link
         href={`/vagas/${job.slug}`}
-        className="hover:bg-muted/50 focus-visible:ring-ring block rounded-lg border p-4 focus-visible:ring-2 focus-visible:outline-none"
+        className="hover:bg-muted/50 focus-visible:ring-ring block rounded-lg border p-4 focus-visible:outline-none focus-visible:ring-2"
       >
         <div className="flex items-start justify-between gap-3">
           <span className="bg-secondary text-secondary-foreground rounded-md px-2 py-1 text-xs font-medium">
@@ -26,7 +26,7 @@ export function JobCard({ job }: { job: JobPost }) {
           )}
         </div>
 
-        <h3 className="mt-3 leading-snug font-semibold text-balance">
+        <h3 className="mt-3 text-balance font-semibold leading-snug">
           {job.title}
         </h3>
 

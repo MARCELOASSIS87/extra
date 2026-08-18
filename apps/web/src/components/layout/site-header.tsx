@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { mainNav } from "@/lib/navigation";
+import { headerNavItems } from "@/lib/navigation";
 
 /**
  * Cabeçalho fixo. Em 360px cabe só a marca e o botão de entrar; os destinos
  * ficam na barra inferior. A partir de md os links aparecem aqui.
  */
-export function SiteHeader() {
+export function SiteHeader({ authenticated }: { authenticated: boolean }) {
+  const items = headerNavItems(authenticated);
+
   return (
     <header className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
       <div className="mx-auto flex h-14 w-full max-w-3xl items-center gap-3 px-4">
@@ -20,7 +22,7 @@ export function SiteHeader() {
 
         <nav aria-label="Navegação principal" className="ml-4 hidden md:block">
           <ul className="flex items-center gap-1">
-            {mainNav.map((item) => (
+            {items.map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
@@ -48,9 +50,11 @@ export function SiteHeader() {
           >
             Publicar vaga
           </Link>
-          <Link href="/entrar" className={buttonVariants()}>
-            Entrar
-          </Link>
+          {!authenticated && (
+            <Link href="/entrar" className={buttonVariants()}>
+              Entrar
+            </Link>
+          )}
         </div>
       </div>
     </header>

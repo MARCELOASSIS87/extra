@@ -78,3 +78,27 @@ export const jobPostSchema = z.object({
 });
 
 export type JobPostInput = z.infer<typeof jobPostSchema>;
+
+export const MAX_JOB_PAGE_SIZE = 50;
+
+/**
+ * Filtros da listagem pública, vindos da query string (§8) — logo, entrada de
+ * fora. Cada campo tem `.catch(undefined)` de propósito: link velho ou colado
+ * pela metade não pode derrubar a busca inteira, só o filtro estragado.
+ */
+export const jobFiltersSchema = z.object({
+  role: jobRoleSchema.optional().catch(undefined),
+  city: z.string().trim().min(1).optional().catch(undefined),
+  neighborhood: z.string().trim().min(1).optional().catch(undefined),
+  date: z.iso.date().optional().catch(undefined),
+  page: z.coerce.number().int().positive().optional().catch(undefined),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(MAX_JOB_PAGE_SIZE)
+    .optional()
+    .catch(undefined),
+});
+
+export type JobFiltersInput = z.infer<typeof jobFiltersSchema>;

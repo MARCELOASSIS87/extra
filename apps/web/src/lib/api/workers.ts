@@ -6,6 +6,7 @@ import {
   type WorkerProfileUpdate,
   type WorkerStep1Identity,
 } from "@extra/shared/schemas/worker";
+import { CITY } from "@extra/shared/constants/city";
 import { CURRENT_WORKER_ID, nowIso, randomId, store, withMock } from "./mock";
 import { err, ok } from "./result";
 
@@ -40,7 +41,7 @@ export async function createWorker(
       phoneVerifiedAt: null,
       cpf: parsed.data.cpf,
       birthDate: parsed.data.birthDate,
-      city: "Juiz de Fora",
+      city: CITY,
       neighborhood: "",
       roles: [],
       experience: "",

@@ -78,11 +78,11 @@ async function main() {
     endTime: "23:00",
     payAmount: 180,
     payNote: null,
-    address: "Rua Halfeld, 500",
+    address: "Rua Assis Figueiredo, 500",
     neighborhood: "Centro",
     requirements: null,
     vacancies: 2,
-    contactPhone: "+5532991258324",
+    contactPhone: "+5535991258324",
   };
 
   // O filtro do §14.1 vale na camada de dados, não só no formulário.
@@ -315,7 +315,7 @@ async function main() {
         legalName: "Empresa Inválida LTDA",
         tradeName: "Inválida",
         responsibleName: "Fulano de Tal",
-        phone: "+5532991258324",
+        phone: "+5535991258324",
         email: "contato@invalida.com.br",
       }),
     ),

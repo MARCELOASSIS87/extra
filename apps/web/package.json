@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/lib/api/api.test.ts"
+    "test": "tsx src/lib/api/api.test.ts && tsx src/lib/job-search.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
