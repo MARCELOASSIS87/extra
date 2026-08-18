@@ -110,3 +110,14 @@ export const workerStep6ReferencesSchema = z.object({
     .length(2, "Informe exatamente duas referências"),
 });
 export type WorkerStep6References = z.infer<typeof workerStep6ReferencesSchema>;
+
+// PATCH /v1/workers/me — cadastro salva etapa a etapa (§16.1), então a
+// atualização é sempre parcial. A etapa 1 (nome/CPF/nascimento) não entra:
+// identidade não se reescreve por PATCH.
+export const workerProfileUpdateSchema = workerStep2PhoneSchema
+  .extend(workerStep3DocumentSchema.shape)
+  .extend(workerStep4ProfileSchema.shape)
+  .extend(workerStep5VideoSchema.shape)
+  .extend(workerStep6ReferencesSchema.shape)
+  .partial();
+export type WorkerProfileUpdate = z.infer<typeof workerProfileUpdateSchema>;

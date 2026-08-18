@@ -7,6 +7,13 @@ export interface AttendanceSummary {
 
 export type AttendanceStatus = "present" | "absent" | "disputed";
 
+// A empresa só marca presente ou ausente. "disputed" nasce da contestação do
+// trabalhador (§16.4), nunca de quem marca.
+export interface AttendanceMarkInput {
+  workerId: string;
+  status: Extract<AttendanceStatus, "present" | "absent">;
+}
+
 export interface AttendanceRecord {
   id: string;
   workerId: string;

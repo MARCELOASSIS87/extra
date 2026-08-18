@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx src/lib/api/api.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -27,7 +28,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "tsx": "^4.23.12"
   },
   "packageManager": "pnpm@9.15.9"
 }

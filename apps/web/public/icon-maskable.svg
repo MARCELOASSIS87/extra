@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Extra">
+  <!-- Maskable: a marca fica dentro da zona segura central (80%), porque o
+       Android recorta as bordas em círculo, squircle ou gota. -->
+  <rect width="512" height="512" fill="#171717" />
+  <g fill="#ffffff">
+    <rect x="184" y="160" width="40" height="192" rx="6" />
+    <rect x="184" y="160" width="144" height="40" rx="6" />
+    <rect x="184" y="236" width="114" height="40" rx="6" />
+    <rect x="184" y="312" width="144" height="40" rx="6" />
+  </g>
+</svg>

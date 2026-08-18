@@ -13,6 +13,16 @@ export type JobRole =
 
 export type JobStatus = "open" | "filled" | "expired" | "cancelled";
 
+// Filtros da listagem pública — espelham a query de GET /v1/jobs (§8).
+export interface JobFilters {
+  role?: JobRole;
+  city?: string;
+  neighborhood?: string;
+  date?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export interface JobPost {
   id: string;
   slug: string;

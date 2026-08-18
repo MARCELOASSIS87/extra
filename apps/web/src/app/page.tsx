@@ -1,69 +1,137 @@
-import Image from "next/image";
+import Link from "next/link";
+import type { JobRole } from "@extra/shared/types/job";
+import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
+import { jobRoleSchema } from "@extra/shared/schemas/job";
+import { listJobs } from "@/lib/api/jobs";
+import { JobCard } from "@/components/jobs/job-card";
+import { RoleFilter } from "@/components/jobs/role-filter";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-export default function Home() {
+const HOME_PAGE_SIZE = 12;
+
+export default async function Home({ searchParams }: PageProps<"/">) {
+  const params = await searchParams;
+  // Query string é entrada de fora: só passa adiante o que o enum reconhece.
+  const parsedRole = jobRoleSchema.safeParse(params.funcao);
+  const role: JobRole | null = parsedRole.success ? parsedRole.data : null;
+
+  const result = await listJobs({
+    role: role ?? undefined,
+    pageSize: HOME_PAGE_SIZE,
+  });
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex w-full max-w-3xl flex-1 flex-col items-center justify-between bg-white px-16 py-32 sm:items-start dark:bg-black">
-        <Image
-          className="h-5 w-[100px] dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="bg-foreground text-background flex h-12 w-full items-center justify-center gap-2 rounded-full px-5 transition-colors hover:bg-[#383838] md:w-[158px] dark:hover:bg-[#ccc]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="mx-auto w-full max-w-3xl px-4 py-8">
+      <section>
+        <h1 className="text-2xl font-semibold tracking-tight text-balance">
+          Trabalho extra na sua região
+        </h1>
+        <p className="text-muted-foreground mt-3">
+          Vagas por diária em cozinha, salão, limpeza, segurança e eventos. Você
+          se candidata e combina direto com a empresa.
+        </p>
+
+        {/* Os dois caminhos lado a lado: quem chega precisa saber em dois
+            segundos qual dos dois é ele. */}
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <Link
+            href="/cadastro/trabalhador"
+            className={cn(buttonVariants({ size: "lg" }), "h-12 w-full")}
           >
-            <Image
-              className="h-[14px] w-4 dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] md:w-[158px] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Quero trabalhar
+          </Link>
+          <Link
+            href="/cadastro/empresa"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "lg" }),
+              "h-12 w-full",
+            )}
           >
-            Documentation
-          </a>
+            Quero contratar
+          </Link>
         </div>
-      </main>
+        <p className="text-muted-foreground mt-2 text-xs">
+          Cadastro gratuito para quem procura trabalho.
+        </p>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold tracking-tight">Vagas abertas</h2>
+        <p className="text-muted-foreground mt-1 text-sm">
+          As publicadas mais recentemente.
+        </p>
+
+        <div className="mt-4">
+          <RoleFilter selected={role} />
+        </div>
+
+        <div className="mt-6">
+          {!result.ok ? (
+            <ErrorState />
+          ) : result.data.items.length === 0 ? (
+            <EmptyState role={role} />
+          ) : (
+            <>
+              <ul className="grid gap-3">
+                {result.data.items.map((job) => (
+                  <JobCard key={job.id} job={job} />
+                ))}
+              </ul>
+              {result.data.total > result.data.items.length && (
+                <p className="text-muted-foreground mt-4 text-sm">
+                  Mostrando {result.data.items.length} de {result.data.total}{" "}
+                  vagas abertas.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ErrorState() {
+  return (
+    <div className="rounded-lg border border-dashed p-6 text-center">
+      <p className="font-medium">Não foi possível carregar as vagas.</p>
+      <p className="text-muted-foreground mt-1 text-sm">
+        Pode ter sido a conexão. Tente de novo em alguns segundos.
+      </p>
+      {/* Link para a própria home: recarrega e refaz a busca sem exigir JS. */}
+      <Link
+        href="/"
+        className={cn(buttonVariants({ variant: "outline" }), "mt-4")}
+      >
+        Tentar de novo
+      </Link>
+    </div>
+  );
+}
+
+function EmptyState({ role }: { role: JobRole | null }) {
+  return (
+    <div className="rounded-lg border border-dashed p-6 text-center">
+      <p className="font-medium">
+        {role
+          ? `Nenhuma vaga de ${JOB_ROLE_LABELS[role]} aberta agora.`
+          : "Nenhuma vaga aberta agora."}
+      </p>
+      <p className="text-muted-foreground mt-1 text-sm">
+        Vagas novas aparecem todo dia. Cadastre-se para ser avisado quando
+        surgir uma da sua função.
+      </p>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        {role && (
+          <Link href="/" className={buttonVariants({ variant: "outline" })}>
+            Ver todas as vagas
+          </Link>
+        )}
+        <Link href="/cadastro/trabalhador" className={buttonVariants()}>
+          Quero trabalhar
+        </Link>
+      </div>
     </div>
   );
 }
