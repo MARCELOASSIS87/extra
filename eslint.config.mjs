@@ -34,5 +34,24 @@ export default tseslint.config(
   { languageOptions: { globals: globals.node } },
   { files: ["apps/web/**"], languageOptions: { globals: globals.browser } },
   ...scopeToWeb(nextCoreWebVitals),
+  {
+    // Regra de ouro do outside-in: só src/lib/api/ pode importar de src/mocks/.
+    files: ["apps/web/src/**/*.{js,jsx,ts,tsx,mjs,mts}"],
+    ignores: ["apps/web/src/lib/api/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/mocks", "**/mocks/**", "@/mocks", "@/mocks/**"],
+              message:
+                "Não importe de src/mocks/ diretamente. Passe por src/lib/api/.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   eslintConfigPrettier,
 );
