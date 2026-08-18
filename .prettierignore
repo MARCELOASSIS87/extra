@@ -1,0 +1,8 @@
+node_modules
+dist
+build
+.next
+pnpm-lock.yaml
+
+# Project docs at root are hand-authored prose, not reformatted by tooling
+/*.md
