@@ -148,6 +148,7 @@ const validCompany = {
   responsibleName: "Ana Silva",
   phone: "+5511987654321",
   email: "contato@buffetsilva.com.br",
+  termsAccepted: true,
 };
 assert.equal(companyRegistrationSchema.safeParse(validCompany).success, true);
 assert.equal(
@@ -160,6 +161,13 @@ assert.equal(
 assert.equal(
   companyRegistrationSchema.safeParse({ ...validCompany, email: "nao-e-email" })
     .success,
+  false,
+);
+assert.equal(
+  companyRegistrationSchema.safeParse({
+    ...validCompany,
+    termsAccepted: false,
+  }).success,
   false,
 );
 

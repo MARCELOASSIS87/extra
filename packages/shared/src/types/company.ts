@@ -13,4 +13,5 @@ export interface Company {
   subscriptionStatus: SubscriptionStatus;
   subscriptionEndsAt: string | null;
   createdAt: string;
+  termsAcceptedAt: string;
 }

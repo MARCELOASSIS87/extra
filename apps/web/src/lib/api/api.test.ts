@@ -317,9 +317,39 @@ async function main() {
         responsibleName: "Fulano de Tal",
         phone: "+5535991258324",
         email: "contato@invalida.com.br",
+        termsAccepted: true,
       }),
     ),
     "validation_error",
+  );
+
+  const validCompanyInput = {
+    cnpj: "99.888.777/0001-00",
+    legalName: "Nova Empresa de Teste LTDA",
+    tradeName: "Nova Empresa",
+    responsibleName: "Responsável de Teste",
+    phone: "+5535991258399",
+    email: "contato@novaempresa.com.br",
+  };
+  expectError(
+    await call(() =>
+      createCompany({ ...validCompanyInput, termsAccepted: false }),
+    ),
+    "validation_error",
+  );
+
+  const newCompany = unwrap(
+    await call(() =>
+      createCompany({ ...validCompanyInput, termsAccepted: true }),
+    ),
+  );
+  assert.equal(newCompany.subscriptionStatus, "trialing");
+  assert.notEqual(newCompany.termsAcceptedAt, null);
+  expectError(
+    await call(() =>
+      createCompany({ ...validCompanyInput, termsAccepted: true }),
+    ),
+    "cnpj_already_registered",
   );
 
   console.log("api.test.ts: all checks passed");

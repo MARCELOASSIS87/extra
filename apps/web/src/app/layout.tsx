@@ -58,7 +58,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
 
         <SiteHeader authenticated={authenticated} />
 
-        <main id="conteudo" className="flex-1">
+        {/* min-w-0: <main> é o único item flex entre a faixa de chips e a
+            raiz. Sem isso, um filho com overflow-x pode esticar o item pela
+            largura do conteúdo e empurrar a página. */}
+        <main id="conteudo" className="min-w-0 flex-1">
           {children}
         </main>
 

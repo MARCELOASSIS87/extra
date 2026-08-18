@@ -21,6 +21,7 @@ export const companies: Company[] = [
     subscriptionStatus: "active",
     subscriptionEndsAt: "2026-09-16T23:59:00.000Z",
     createdAt: "2025-03-15T10:15:00.000Z",
+    termsAcceptedAt: "2025-03-15T10:15:00.000Z",
   },
   {
     id: "966d33ed-ea6b-4a5c-a0ec-0d4b3097ab06",
@@ -34,6 +35,7 @@ export const companies: Company[] = [
     subscriptionStatus: "active",
     subscriptionEndsAt: "2026-09-15T23:59:00.000Z",
     createdAt: "2025-04-18T10:15:00.000Z",
+    termsAcceptedAt: "2025-04-18T10:15:00.000Z",
   },
   {
     id: "7acdcd16-f79f-4eea-a2c7-9c306ba5be31",
@@ -47,6 +49,7 @@ export const companies: Company[] = [
     subscriptionStatus: "active",
     subscriptionEndsAt: "2026-09-14T23:59:00.000Z",
     createdAt: "2025-05-22T10:15:00.000Z",
+    termsAcceptedAt: "2025-05-22T10:15:00.000Z",
   },
   {
     id: "c1994a84-ff5a-4c69-a26d-7f2c5cb1ebd1",
@@ -60,6 +63,7 @@ export const companies: Company[] = [
     subscriptionStatus: "trialing",
     subscriptionEndsAt: "2026-08-29T23:59:00.000Z",
     createdAt: "2025-06-25T10:15:00.000Z",
+    termsAcceptedAt: "2025-06-25T10:15:00.000Z",
   },
   {
     id: "c8fcb64c-37ea-4a3c-a89f-86a9fa301542",
@@ -73,6 +77,7 @@ export const companies: Company[] = [
     subscriptionStatus: "active",
     subscriptionEndsAt: "2026-09-12T23:59:00.000Z",
     createdAt: "2025-07-29T10:15:00.000Z",
+    termsAcceptedAt: "2025-07-29T10:15:00.000Z",
   },
   {
     id: "5be698fa-5f59-4e99-a23a-05f20a731ff4",
@@ -86,6 +91,7 @@ export const companies: Company[] = [
     subscriptionStatus: "past_due",
     subscriptionEndsAt: "2026-08-14T23:59:00.000Z",
     createdAt: "2025-09-01T10:15:00.000Z",
+    termsAcceptedAt: "2025-09-01T10:15:00.000Z",
   },
   {
     id: "66de6783-b033-41f2-a844-ad74760f3b4c",
@@ -99,6 +105,7 @@ export const companies: Company[] = [
     subscriptionStatus: "active",
     subscriptionEndsAt: "2026-09-10T23:59:00.000Z",
     createdAt: "2025-10-05T10:15:00.000Z",
+    termsAcceptedAt: "2025-10-05T10:15:00.000Z",
   },
   {
     id: "d80fcbba-7d7f-4247-a102-b2975fc10b2d",
@@ -112,6 +119,7 @@ export const companies: Company[] = [
     subscriptionStatus: "trialing",
     subscriptionEndsAt: "2026-09-02T23:59:00.000Z",
     createdAt: "2025-11-08T10:15:00.000Z",
+    termsAcceptedAt: "2025-11-08T10:15:00.000Z",
   },
   {
     id: "c5047a80-a019-4ff6-ad78-26a8fc042c83",
@@ -125,6 +133,7 @@ export const companies: Company[] = [
     subscriptionStatus: "active",
     subscriptionEndsAt: "2026-09-08T23:59:00.000Z",
     createdAt: "2025-12-12T10:15:00.000Z",
+    termsAcceptedAt: "2025-12-12T10:15:00.000Z",
   },
   {
     id: "cc571445-f3d5-4a9d-a244-d0b3bac4c662",
@@ -138,6 +147,7 @@ export const companies: Company[] = [
     subscriptionStatus: "suspended",
     subscriptionEndsAt: "2026-08-09T23:59:00.000Z",
     createdAt: "2026-01-15T10:15:00.000Z",
+    termsAcceptedAt: "2026-01-15T10:15:00.000Z",
   },
   {
     id: "5eda3fcc-13ad-496a-a031-f3e6b195a87b",
@@ -151,6 +161,7 @@ export const companies: Company[] = [
     subscriptionStatus: "active",
     subscriptionEndsAt: "2026-09-06T23:59:00.000Z",
     createdAt: "2026-02-18T10:15:00.000Z",
+    termsAcceptedAt: "2026-02-18T10:15:00.000Z",
   },
   {
     id: "7b014381-3ab6-40a6-af7c-bdbfa74ed4f9",
@@ -164,6 +175,7 @@ export const companies: Company[] = [
     subscriptionStatus: "cancelled",
     subscriptionEndsAt: "2026-07-26T23:59:00.000Z",
     createdAt: "2026-03-24T10:15:00.000Z",
+    termsAcceptedAt: "2026-03-24T10:15:00.000Z",
   },
 ];
 

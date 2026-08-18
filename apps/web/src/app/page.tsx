@@ -5,11 +5,15 @@ import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { jobRoleSchema } from "@extra/shared/schemas/job";
 import { listJobs } from "@/lib/api/jobs";
 import { JobCard } from "@/components/jobs/job-card";
-import { RoleFilter } from "@/components/jobs/role-filter";
+import { RoleFilterSheet } from "@/components/filters/role-filter-sheet";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const HOME_PAGE_SIZE = 12;
+
+const ROLE_OPTIONS = (Object.keys(JOB_ROLE_LABELS) as JobRole[]).map(
+  (value) => ({ value, label: JOB_ROLE_LABELS[value] }),
+);
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const params = await searchParams;
@@ -66,7 +70,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </p>
 
         <div className="mt-4">
-          <RoleFilter selected={role} />
+          <RoleFilterSheet value={role} options={ROLE_OPTIONS} />
         </div>
 
         <div className="mt-6">

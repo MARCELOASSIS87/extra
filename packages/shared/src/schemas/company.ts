@@ -37,6 +37,9 @@ export const companyRegistrationSchema = z.object({
       "Telefone deve estar no formato internacional (+55...)",
     ),
   email: z.email("E-mail inválido"),
+  termsAccepted: z
+    .boolean()
+    .refine((value) => value, "É preciso aceitar os termos de uso"),
 });
 
 export type CompanyRegistrationInput = z.infer<

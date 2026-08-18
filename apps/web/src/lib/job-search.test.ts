@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { hasActiveFilters, jobsHref, parseJobSearchParams } from "./job-search";
+import { hasActiveFilters, jobsHref } from "./job-search";
+import { parseJobSearchParams } from "./job-search-params";
 
 // --- leitura da query string ------------------------------------------------
 assert.deepEqual(parseJobSearchParams({}), {});

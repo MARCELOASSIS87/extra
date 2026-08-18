@@ -79,13 +79,13 @@ Next.js 16.3 (App Router) · TypeScript strict · Tailwind + shadcn/ui · react-
 
 Telas primeiro, banco por último — com os contratos definidos antes, para o backend não nascer torto.
 
-| Fase | O quê |
-|---|---|
-| 1 | Tipos e schemas zod em `packages/shared`. **Nenhuma tela antes disto.** |
-| 2 | Camada mock em `apps/web/src/lib/api/` com as assinaturas definitivas |
-| 3 | Front completo navegável contra o mock — vendável sem uma linha de backend |
-| 4 | API Fastify cumprindo os mesmos contratos. O front não muda |
-| 5 | Prisma e Postgres, schema derivado dos tipos já validados na prática |
+| Fase | O quê                                                                         |
+| ---- | ------------------------------------------------------------------------------ |
+| 1    | Tipos e schemas zod em`packages/shared`. **Nenhuma tela antes disto.** |
+| 2    | Camada mock em`apps/web/src/lib/api/` com as assinaturas definitivas         |
+| 3    | Front completo navegável contra o mock — vendável sem uma linha de backend  |
+| 4    | API Fastify cumprindo os mesmos contratos. O front não muda                   |
+| 5    | Prisma e Postgres, schema derivado dos tipos já validados na prática         |
 
 **Regra de ouro:** nenhum componente importa de `src/mocks/` diretamente. Tudo passa por `src/lib/api/`. Respeitada essa regra, a Fase 4 é troca de implementação, não reescrita.
 
@@ -119,10 +119,10 @@ O mock simula 300–800ms de latência e falha em ~5% das chamadas — os estado
 
 Dois bancos distintos. **A confusão entre eles apaga dados reais.**
 
-| Ambiente | Onde | Comando permitido |
-|---|---|---|
-| Local | contêiner Postgres no WSL, porta 5433 | `prisma migrate dev` |
-| Produção | contêiner no VPS | `prisma migrate deploy` — **na mão, com `pg_dump` antes** |
+| Ambiente   | Onde                                   | Comando permitido                                                     |
+| ---------- | -------------------------------------- | --------------------------------------------------------------------- |
+| Local      | contêiner Postgres no WSL, porta 5433 | `prisma migrate dev`                                                |
+| Produção | contêiner no VPS                      | `prisma migrate deploy` — **na mão, com `pg_dump` antes** |
 
 - **`prisma migrate dev` nunca toca em produção.** Ele reseta o banco quando detecta divergência de schema.
 - `prisma migrate deploy` não reseta: só aplica o que falta.
@@ -176,6 +176,25 @@ chat interno · estrelas, notas ou comentários · processamento do pagamento do
 - [ ] Sem `any`, sem `console.log` esquecido, sem segredo no código
 
 ---
+
+
+## Ritmo de trabalho
+
+Quem verifica o resultado visual é o desenvolvedor, olhando o navegador.
+O servidor de desenvolvimento já está rodando o tempo todo.
+
+NÃO faça, a menos que eu peça explicitamente:
+
+- subir servidor de desenvolvimento ou abrir portas
+- rodar build para conferir
+- abrir navegador, tirar screenshot ou testar interface
+- medir espaçamento, contraste ou responsividade
+- escrever testes
+- reler os arquivos que você acabou de escrever para conferir
+
+Faça a alteração, diga em duas linhas o que mudou e em quais arquivos, e pare.
+Se algo ficou incerto ou você teve que decidir algo por conta, diga qual foi
+a decisão — mas não vá verificar.
 
 ## Como pedir tarefas neste repositório
 

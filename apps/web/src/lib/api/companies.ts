@@ -36,14 +36,21 @@ export async function createCompany(
       );
     }
 
+    const now = nowIso();
     const company: Company = {
-      ...parsed.data,
       id: randomId(),
+      cnpj: parsed.data.cnpj,
+      legalName: parsed.data.legalName,
+      tradeName: parsed.data.tradeName,
+      responsibleName: parsed.data.responsibleName,
+      phone: parsed.data.phone,
+      email: parsed.data.email,
       city: CITY,
       // Assinatura começa em teste; cobrança é da empresa, nunca do trabalhador.
       subscriptionStatus: "trialing",
       subscriptionEndsAt: new Date(Date.now() + 14 * 86400000).toISOString(),
-      createdAt: nowIso(),
+      createdAt: now,
+      termsAcceptedAt: now,
     };
 
     store.companies = [...store.companies, company];

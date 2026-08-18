@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SearchX } from "lucide-react";
+import type { JobRole } from "@extra/shared/types/job";
 import type { JobFiltersInput } from "@extra/shared/schemas/job";
 import { CITY } from "@extra/shared/constants/city";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
@@ -11,17 +12,17 @@ import { Pagination } from "@/components/jobs/pagination";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatJobDate } from "@/lib/format";
-import {
-  hasActiveFilters,
-  JOBS_PAGE_SIZE,
-  jobsHref,
-  parseJobSearchParams,
-} from "@/lib/job-search";
+import { hasActiveFilters, JOBS_PAGE_SIZE, jobsHref } from "@/lib/job-search";
+import { parseJobSearchParams } from "@/lib/job-search-params";
 
 export const metadata: Metadata = {
   title: "Vagas abertas",
   description: `Todas as vagas de trabalho extra abertas em ${CITY}. Filtre por função, data e bairro.`,
 };
+
+const ROLE_OPTIONS = (Object.keys(JOB_ROLE_LABELS) as JobRole[]).map(
+  (value) => ({ value, label: JOB_ROLE_LABELS[value] }),
+);
 
 export default async function JobsPage({ searchParams }: PageProps<"/vagas">) {
   const filters = parseJobSearchParams(await searchParams);
@@ -53,6 +54,7 @@ export default async function JobsPage({ searchParams }: PageProps<"/vagas">) {
       <div className="mt-6">
         <JobFilters
           filters={filters}
+          roleOptions={ROLE_OPTIONS}
           neighborhoods={
             neighborhoodsResult.ok ? neighborhoodsResult.data : null
           }
