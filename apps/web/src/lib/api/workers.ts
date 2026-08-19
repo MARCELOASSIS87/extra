@@ -7,12 +7,13 @@ import {
   type WorkerStep1Identity,
 } from "@extra/shared/schemas/worker";
 import { CITY } from "@extra/shared/constants/city";
-import { CURRENT_WORKER_ID, nowIso, randomId, store, withMock } from "./mock";
+import { getCurrentWorkerId, nowIso, randomId, store, withMock } from "./mock";
 import { err, ok } from "./result";
 
 export async function getMyWorkerProfile(): Promise<ApiResult<Worker | null>> {
+  const workerId = await getCurrentWorkerId();
   return withMock(() =>
-    ok(store.workers.find((worker) => worker.id === CURRENT_WORKER_ID) ?? null),
+    ok(store.workers.find((worker) => worker.id === workerId) ?? null),
   );
 }
 
@@ -67,6 +68,7 @@ export async function createWorker(
 export async function updateMyWorkerProfile(
   input: WorkerProfileUpdate,
 ): Promise<ApiResult<Worker>> {
+  const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const parsed = workerProfileUpdateSchema.safeParse(input);
     if (!parsed.success) {
@@ -74,9 +76,7 @@ export async function updateMyWorkerProfile(
       return err("validation_error", issue.message, issue.path.join("."));
     }
 
-    const current = store.workers.find(
-      (worker) => worker.id === CURRENT_WORKER_ID,
-    );
+    const current = store.workers.find((worker) => worker.id === workerId);
     if (!current) return err("worker_not_found", "Cadastro não encontrado.");
 
     const merged: Worker = { ...current, ...parsed.data };
@@ -110,10 +110,9 @@ export async function updateMyWorkerProfile(
 
 /** O próprio usuário desativa a conta. Não existe desativação por terceiro. */
 export async function deactivateMyAccount(): Promise<ApiResult<Worker>> {
+  const workerId = await getCurrentWorkerId();
   return withMock(() => {
-    const current = store.workers.find(
-      (worker) => worker.id === CURRENT_WORKER_ID,
-    );
+    const current = store.workers.find((worker) => worker.id === workerId);
     if (!current) return err("worker_not_found", "Cadastro não encontrado.");
 
     const updated: Worker = { ...current, status: "self_deactivated" };

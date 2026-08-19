@@ -3,8 +3,8 @@ import type { Application } from "@extra/shared/types/application";
 import type { JobPost } from "@extra/shared/types/job";
 import type { WorkerPublicProfile } from "@extra/shared/types/worker";
 import {
-  CURRENT_WORKER_ID,
   getCurrentCompanyId,
+  getCurrentWorkerId,
   nowIso,
   randomId,
   randomShortCode,
@@ -18,6 +18,7 @@ import { err, ok } from "./result";
 export async function applyToJob(
   jobId: string,
 ): Promise<ApiResult<Application>> {
+  const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const job = store.jobPosts.find((item) => item.id === jobId);
     if (!job) return err("job_not_found", "Vaga não encontrada.");
@@ -31,7 +32,7 @@ export async function applyToJob(
     }
 
     const already = store.applications.some(
-      (item) => item.jobPostId === jobId && item.workerId === CURRENT_WORKER_ID,
+      (item) => item.jobPostId === jobId && item.workerId === workerId,
     );
     if (already)
       return err("already_applied", "Você já se candidatou a esta vaga.");
@@ -40,7 +41,7 @@ export async function applyToJob(
       id: randomId(),
       shortCode: randomShortCode(),
       jobPostId: jobId,
-      workerId: CURRENT_WORKER_ID,
+      workerId,
       status: "applied",
       appliedAt: nowIso(),
       contactedAt: null,
@@ -64,11 +65,12 @@ export async function applyToJob(
 export async function markApplicationContacted(
   id: string,
 ): Promise<ApiResult<Application>> {
+  const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const application = store.applications.find((item) => item.id === id);
     if (!application)
       return err("application_not_found", "Candidatura não encontrada.");
-    if (application.workerId !== CURRENT_WORKER_ID) {
+    if (application.workerId !== workerId) {
       return err("forbidden", "Esta candidatura é de outra pessoa.");
     }
 
@@ -82,10 +84,11 @@ export async function markApplicationContacted(
 
 /** GET /v1/me/applications — mais recentes primeiro. */
 export async function listMyApplications(): Promise<ApiResult<Application[]>> {
+  const workerId = await getCurrentWorkerId();
   return withMock(() =>
     ok(
       store.applications
-        .filter((item) => item.workerId === CURRENT_WORKER_ID)
+        .filter((item) => item.workerId === workerId)
         .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt)),
     ),
   );
@@ -98,11 +101,12 @@ export async function listMyApplications(): Promise<ApiResult<Application[]>> {
 export async function confirmApplication(
   id: string,
 ): Promise<ApiResult<Application>> {
+  const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const application = store.applications.find((item) => item.id === id);
     if (!application)
       return err("application_not_found", "Candidatura não encontrada.");
-    if (application.workerId !== CURRENT_WORKER_ID) {
+    if (application.workerId !== workerId) {
       return err("forbidden", "Esta candidatura é de outra pessoa.");
     }
     if (application.status === "withdrawn") {
@@ -125,11 +129,12 @@ export async function confirmApplication(
 export async function withdrawApplication(
   id: string,
 ): Promise<ApiResult<Application>> {
+  const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const application = store.applications.find((item) => item.id === id);
     if (!application)
       return err("application_not_found", "Candidatura não encontrada.");
-    if (application.workerId !== CURRENT_WORKER_ID) {
+    if (application.workerId !== workerId) {
       return err("forbidden", "Esta candidatura é de outra pessoa.");
     }
 

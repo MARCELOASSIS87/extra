@@ -46,7 +46,7 @@ Três contêineres independentes, mais infraestrutura de apoio. Tudo no VPS pró
                     Internet
                        │
                  ┌─────▼─────┐
-                 │   Caddy    │  reverse proxy + TLS automático
+                 │   nginx    │  reverse proxy + TLS (certbot)
                  └──┬──────┬──┘
           app.dominio│      │api.dominio
              ┌───────▼─┐  ┌─▼────────┐
@@ -62,7 +62,7 @@ Três contêineres independentes, mais infraestrutura de apoio. Tudo no VPS pró
               └───────────┘         └──────────────┘
 ```
 
-Rede Docker interna. **Só o Caddy expõe porta pública.** Postgres e MinIO nunca ficam acessíveis de fora.
+Rede Docker interna. **Só o nginx expõe porta pública.** Postgres e MinIO nunca ficam acessíveis de fora.
 
 ### 3.1 Por que backend separado (e não Next.js full-stack)
 
@@ -83,7 +83,7 @@ Se em algum momento o app nativo sair do plano, consolidar em um contêiner só 
 
 | Camada | Escolha | Custo |
 |---|---|---|
-| Proxy/TLS | **Caddy** (contêiner) — HTTPS automático via Let's Encrypt | R$ 0 |
+| Proxy/TLS | **nginx** (contêiner) + **certbot** para Let's Encrypt | R$ 0 |
 | Front | **Next.js 16.3** App Router, output `standalone` | R$ 0 |
 | UI | **Tailwind + shadcn/ui** | R$ 0 |
 | Formulários | **react-hook-form + zod** | R$ 0 |
@@ -133,7 +133,7 @@ extra/
   infra/
     docker-compose.yml
     docker-compose.dev.yml
-    Caddyfile
+    nginx.conf
     backup.sh
   MODELO-NEGOCIO-v2.md
   ESPECIFICACAO-TECNICA-v2.md
@@ -218,18 +218,26 @@ export interface AttendanceSummary {
   present: number
   absent: number
   distinctCompanies: number
+  // 'not_selected' NÃO entra aqui e NUNCA é exibido ao público. Ver §16.7.
   // NUNCA existe rating, stars, score ou comment.
 }
 
-export type AttendanceStatus = 'present' | 'absent' | 'disputed'
+// 'not_selected' é NEUTRO: não entra em present nem em absent. Ver §16.7.
+export type AttendanceStatus =
+  | 'pending'        // aguardando a empresa marcar
+  | 'not_selected'   // não foi chamado — neutro, não conta como nada
+  | 'present'        // foi chamado e compareceu
+  | 'absent'         // foi chamado e NÃO compareceu — só isto é falta
+  | 'disputed'       // contestado pelo trabalhador
 
 export interface AttendanceRecord {
   id: string
   workerId: string
   companyId: string
   jobPostId: string
+  applicationId: string
   status: AttendanceStatus
-  markedAt: string
+  markedAt: string | null       // null enquanto 'pending'
   disputedAt: string | null     // contestação em até 7 dias
   expiresAt: string             // markedAt + 12 meses
   // Sem campo de texto livre. É a regra que evita ação por dano moral.
@@ -269,7 +277,6 @@ export interface JobPost {
   publishedAt: string
   expiresAt: string
 }
-```
 
 // Nunca faz parte do payload público. Só é servido após candidatura ativa.
 export interface JobPostContact {
@@ -382,14 +389,27 @@ O mock simula 300–800ms de latência e falha em ~5% das chamadas — força os
 
 ```yaml
 services:
-  caddy:
-    image: caddy:2-alpine
+  nginx:
+    image: nginx:alpine
     restart: unless-stopped
     ports: ["80:80", "443:443"]
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
     networks: [edge]
+    depends_on: [web, api]
+
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c 'trap exit TERM; while :; do
+      certbot renew --webroot -w /var/www/certbot --quiet;
+      sleep 12h & wait $${!}; done;'
 
   web:
     build: { context: .., dockerfile: apps/web/Dockerfile }
@@ -440,27 +460,55 @@ services:
     volumes: [miniodata:/data]
     networks: [internal, edge]
 
-volumes: { pgdata: {}, miniodata: {}, caddy_data: {} }
+volumes: { pgdata: {}, miniodata: {} }
 networks: { edge: {}, internal: { internal: true } }
 ```
 
-### 9.2 Caddyfile
+### 9.2 nginx (`infra/nginx.conf`)
 
+Um `server` por subdomínio. Modelo do bloco do app — repetir para `api` e `cdn`
+trocando o `proxy_pass`:
+
+```nginx
+server {
+  listen 80;
+  server_name app.SEU-SUBDOMINIO;
+  location /.well-known/acme-challenge/ { root /var/www/certbot; }
+  location / { return 301 https://$host$request_uri; }
+}
+
+server {
+  listen 443 ssl;
+  server_name app.SEU-SUBDOMINIO;
+
+  ssl_certificate     /etc/letsencrypt/live/app.SEU-SUBDOMINIO/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/app.SEU-SUBDOMINIO/privkey.pem;
+
+  client_max_body_size 10M;   # upload de vídeo de 30s
+
+  location / {
+    proxy_pass http://web:3000;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+}
 ```
-app.SEU-SUBDOMINIO {
-  reverse_proxy web:3000
-}
 
-api.SEU-SUBDOMINIO {
-  reverse_proxy api:3333
-}
+Emissão do certificado, uma vez por subdomínio, com o nginx já no ar:
 
-cdn.SEU-SUBDOMINIO {
-  reverse_proxy minio:9000
-}
+```bash
+docker compose run --rm certbot certonly --webroot -w /var/www/certbot \
+  -d app.SEU-SUBDOMINIO -d api.SEU-SUBDOMINIO -d cdn.SEU-SUBDOMINIO
+docker compose exec nginx nginx -s reload
 ```
 
-TLS automático, sem configuração. Só apontar o DNS.
+O contêiner `certbot` renova sozinho a cada 12h.
+
+**Alternativa:** o Caddy faz proxy e TLS com quatro linhas de configuração e sem
+certbot. Só vale trocar se o nginx começar a incomodar — ferramenta conhecida
+ganha de ferramenta elegante.
 
 ### 9.3 Dockerfiles
 
@@ -506,7 +554,7 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
 Com swap, o build passa — só demora alguns minutos. Se um dia incomodar, a saída é build no WSL e `docker save | ssh vps 'docker load'`, sem mudar nada no fluxo de Git.
 
-DNS: apontar `app`, `api` e `cdn` do subdomínio para o IP do VPS. O Caddy emite os certificados sozinho no primeiro acesso.
+DNS: apontar `app`, `api` e `cdn` do subdomínio para o IP do VPS. Depois disso, emitir os certificados uma vez (§9.2).
 
 Migrações não entram no deploy automático. Rodar na mão, com backup feito antes (§10).
 
@@ -554,7 +602,7 @@ Então a gente inverte o fluxo: em vez de a plataforma mandar o código, **o usu
 
 - Conta no Meta Business + WhatsApp Business Platform (Cloud API)
 - **Um número dedicado.** Ao entrar na Cloud API, esse número deixa de funcionar no app comum do WhatsApp — usar um chip separado, nunca o número pessoal e **jamais** o número ligado aos grupos do sócio
-- Webhook HTTPS público → `POST /v1/webhooks/whatsapp` (o Caddy já entrega TLS)
+- Webhook HTTPS público → `POST /v1/webhooks/whatsapp` (o nginx já entrega TLS)
 - Verificação de token do webhook e checagem da assinatura `X-Hub-Signature-256`
 - Contas não verificadas têm limite inicial de contatos únicos por 24h. Para fluxo de entrada isso não incomoda no MVP, mas a verificação do Meta Business deve ser feita antes de escalar
 
@@ -642,6 +690,10 @@ A fricção é intencional — filtra quem não faria o esforço de acordar às 
 
 **O tempo entre publicar e a primeira notificação chegar é a métrica técnica mais importante do produto. Meta: menos de 60 segundos.**
 
+**16.3 Confirmação de véspera.** Job diário às 18h notifica os candidatos das vagas do dia seguinte. Sem confirmação até 18h, a vaga reabre e a empresa é avisada. Não confirmar **não gera falta** — é aviso, não punição.
+
+**16.4 Marcação de presença.** Após a data, pendência no painel da empresa. Um clique por candidato, entre três opções — não chamei / compareceu / não compareceu (§16.7). Sem texto. O trabalhador é notificado e tem 7 dias para contestar; contestado, sai do perfil público até resolução. Expira em 12 meses.
+
 **16.5 Revelação de contato — o mecanismo central do produto.**
 
 O telefone **nunca** aparece em página pública. Se aparecesse, o trabalhador
@@ -685,9 +737,62 @@ que é o cliente pagante — de receber trinta mensagens por uma vaga de seis.
 candidaturas com poucos contatos significa fluxo quebrado, e você descobre pelo
 dado antes de alguém reclamar.
 
-**16.3 Confirmação de véspera.** Job diário às 18h notifica os candidatos das vagas do dia seguinte. Sem confirmação até 18h, a vaga reabre e a empresa é avisada. Não confirmar **não gera falta** — é aviso, não punição.
+**16.7 "Não foi escolhido" — o desfecho neutro.**
 
-**16.4 Marcação de presença.** Após a data, pendência no painel da empresa. Um clique por candidato. Sem texto. O trabalhador é notificado e tem 7 dias para contestar; contestado, sai do perfil público até resolução. Expira em 12 meses.
+Uma vaga de uma pessoa recebe até três candidatos; uma de seis recebe até dezoito.
+A empresa chama poucos. Os demais **não faltaram — não foram chamados**, e tratar
+os dois casos como a mesma coisa produziria falta falsa em quem não fez nada de
+errado.
+
+Por isso a marcação tem três saídas, não duas:
+
+| Botão na tela | Status | Efeito no histórico |
+|---|---|---|
+| **Não chamei este** | `not_selected` | **nenhum.** Neutro, invisível ao público |
+| **Compareceu** | `present` | +1 presença |
+| **Não compareceu** | `absent` | +1 falta |
+
+Regras:
+
+- `not_selected` **nunca** aparece no perfil público, nem como contagem, nem como
+  "candidatou-se a 12 vagas". Isso leria como doze rejeições
+- o dado fica guardado para análise interna: se alguém se candidata muito e nunca
+  é chamado, é sinal de que o perfil precisa de ajuda — não de punição
+- **passados 7 dias da data da vaga sem marcação, tudo que estiver `pending` vira
+  `not_selected` automaticamente.** Tira trabalho do cliente pagante e evita que o
+  silêncio da empresa vire prejuízo para o trabalhador
+- só `absent` é falta. Nunca inferir falta de ausência de marcação
+
+**Aviso ao candidato:** quando a vaga fecha ou expira, quem não foi chamado recebe
+**"A vaga foi preenchida"** — fato sobre a vaga, nunca juízo sobre a pessoa. Jamais
+escrever "você não foi escolhido". Silêncio eterno é pior que aviso: sem retorno, a
+pessoa para de se candidatar e você perde a oferta.
+
+**16.6 Exibição do histórico de presença.**
+
+Formato único, em qualquer tela onde o trabalhador apareça para a empresa:
+
+```
+9 presenças · 1 falta · 5 empresas
+```
+
+Regras de exibição:
+
+- número cru. Sem estrela, sem nota, sem porcentagem, sem barra de progresso
+- **sem cor que sugira julgamento.** Falta em vermelho é amplificador de juízo, e o produto não julga — informa
+- registros contestados não entram na contagem enquanto estiverem contestados
+- registros com mais de 12 meses não entram
+- ao lado, o `shortCode` da candidatura, para casar com a conversa no WhatsApp
+
+**A rampa de entrada — regra que não pode ser esquecida:**
+
+Quem ainda não tem histórico **nunca** exibe `0 presenças`. Exibe **"Novo por aqui"**, em tom neutro, ao lado do selo de perfil completo.
+
+Motivo: sistema de reputação sem rampa tranca o novato em definitivo — ele não é chamado porque não tem histórico, e não tem histórico porque não é chamado. `0 presenças, 0 faltas` lê como ruim, não como neutro, e mata a entrada de gente nova, que é exatamente o lado que precisa crescer.
+
+O selo de **perfil completo** é a reputação substituta de quem chegou agora: não tem histórico, mas gravou o vídeo, deu duas referências e preencheu tudo. É o que a empresa olha enquanto o histórico não existe. Por isso os dois aparecem sempre juntos.
+
+---
 
 Agendamento (16.3 e expiração de vagas): `node-cron` dentro do contêiner da API. Sem fila externa no MVP — o volume não justifica.
 
@@ -724,7 +829,7 @@ Agendamento (16.3 e expiração de vagas): `node-cron` dentro do contêiner da A
 13. Fase 4: API Fastify cumprindo os contratos
 14. Fase 5: Prisma, Postgres no contêiner, migrações
 15. MinIO, Web Push real, Resend
-16. Deploy: `docker compose up -d` por SSH no VPS, DNS do subdomínio, Caddy (§9.6)
+16. Deploy: `docker compose up -d` por SSH no VPS, DNS do subdomínio, nginx e certbot (§9.2, §9.6)
 17. Backup configurado **e restauração testada**
 18. Depois da aprovação do sócio: domínio próprio, gateway de assinatura
 
@@ -740,24 +845,10 @@ Chat interno · estrelas, notas ou comentários · qualquer processamento do pag
 
 ## 20. Como usar com o Claude Code
 
-`CLAUDE.md` na raiz:
+O `CLAUDE.md` na raiz é a fonte das regras invioláveis e das convenções — não
+duplique conteúdo dele aqui. Este documento é a referência de detalhe, lida sob
+demanda.
 
-```md
-# Contexto
-Leia ESPECIFICACAO-TECNICA-v2.md antes de qualquer tarefa.
-Regras de negócio inegociáveis: MODELO-NEGOCIO-v2.md §8.
+Peça uma tarefa por vez, referenciando a seção:
 
-## Arquitetura
-Monorepo pnpm. apps/web (Next.js), apps/api (Fastify), packages/shared (tipos + zod).
-Tipos de domínio SEMPRE em packages/shared. Nunca declarar localmente em web ou api.
-
-## Regras que não se negociam
-- Nenhum fluxo de cobrança ligado a trabalhador
-- Nenhum mecanismo de punição de trabalhador
-- Nenhuma copy com "verificado", "aprovado", "confiável" ou "garantido"
-- Nenhum campo de texto livre em avaliação
-- Componentes nunca importam de src/mocks/ — sempre via src/lib/api/
-- Todo schema zod vive em packages/shared e é usado nos dois lados
-```
-
-Uma tarefa por vez, referenciando a seção: *"implemente a etapa 4 do cadastro conforme §16.1, usando os tipos de §7 e a camada de §8.1"*.
+> implemente a etapa 4 do cadastro conforme §16.1, usando os tipos de §7 e a camada de §8.1

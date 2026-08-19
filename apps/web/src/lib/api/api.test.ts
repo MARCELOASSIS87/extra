@@ -11,7 +11,7 @@ import {
 import { disputeAttendance, markAttendance } from "./attendance";
 import { createWorker, updateMyWorkerProfile } from "./workers";
 import { createCompany, listMyCompanyJobs } from "./companies";
-import { CURRENT_WORKER_ID, getCurrentCompanyId, store } from "./mock";
+import { getCurrentCompanyId, getCurrentWorkerId, store } from "./mock";
 
 // A camada falha de propósito em ~5% das chamadas; o teste repete só nesse caso.
 async function call<T>(fn: () => Promise<ApiResult<T>>): Promise<ApiResult<T>> {
@@ -36,6 +36,7 @@ const expectError = <T>(result: ApiResult<T>, code: string) => {
 
 async function main() {
   const currentCompanyId = await getCurrentCompanyId();
+  const currentWorkerId = await getCurrentWorkerId();
 
   // --- listagem pública -------------------------------------------------------
   const firstPage = unwrap(await call(() => listJobs()));
@@ -117,7 +118,7 @@ async function main() {
   // --- candidatura ------------------------------------------------------------
   const application = unwrap(await call(() => applyToJob(created.id)));
   assert.equal(application.status, "applied");
-  assert.equal(application.workerId, CURRENT_WORKER_ID);
+  assert.equal(application.workerId, currentWorkerId);
   expectError(await call(() => applyToJob(created.id)), "already_applied");
   expectError(await call(() => applyToJob("id-inexistente")), "job_not_found");
 
@@ -127,7 +128,7 @@ async function main() {
     "candidatura aparece na lista",
   );
   assert.ok(
-    mine.every((item) => item.workerId === CURRENT_WORKER_ID),
+    mine.every((item) => item.workerId === currentWorkerId),
     "lista traz só as candidaturas da própria pessoa",
   );
 
@@ -158,7 +159,7 @@ async function main() {
   assert.equal(withdrawn.status, "withdrawn");
   assert.ok(
     !unwrap(await call(() => listJobApplicants(created.id))).some(
-      (profile) => profile.id === CURRENT_WORKER_ID,
+      (profile) => profile.id === currentWorkerId,
     ),
     "quem retira a candidatura sai da lista da empresa",
   );
@@ -179,7 +180,7 @@ async function main() {
   expectError(
     await call(() =>
       markAttendance(created.id, {
-        workerId: CURRENT_WORKER_ID,
+        workerId: currentWorkerId,
         status: "present",
       }),
     ),
@@ -199,13 +200,13 @@ async function main() {
   store.applications = [
     ...store.applications.filter(
       (item) =>
-        !(item.jobPostId === pastJob.id && item.workerId === CURRENT_WORKER_ID),
+        !(item.jobPostId === pastJob.id && item.workerId === currentWorkerId),
     ),
     {
       id: "seed-para-teste-de-presenca",
       shortCode: "TEST",
       jobPostId: pastJob.id,
-      workerId: CURRENT_WORKER_ID,
+      workerId: currentWorkerId,
       status: "confirmed",
       appliedAt: `${pastJob.date}T09:00:00.000Z`,
       contactedAt: null,
@@ -214,13 +215,13 @@ async function main() {
   ];
   store.attendanceRecords = store.attendanceRecords.filter(
     (item) =>
-      !(item.jobPostId === pastJob.id && item.workerId === CURRENT_WORKER_ID),
+      !(item.jobPostId === pastJob.id && item.workerId === currentWorkerId),
   );
 
   const record = unwrap(
     await call(() =>
       markAttendance(pastJob.id, {
-        workerId: CURRENT_WORKER_ID,
+        workerId: currentWorkerId,
         status: "present",
       }),
     ),
@@ -236,7 +237,7 @@ async function main() {
   expectError(
     await call(() =>
       markAttendance(pastJob.id, {
-        workerId: CURRENT_WORKER_ID,
+        workerId: currentWorkerId,
         status: "absent",
       }),
     ),
@@ -253,7 +254,7 @@ async function main() {
 
   // Registro antigo das fixtures: o prazo de 7 dias já passou.
   const oldRecord = store.attendanceRecords.find(
-    (item) => item.workerId === CURRENT_WORKER_ID && item.id !== record.id,
+    (item) => item.workerId === currentWorkerId && item.id !== record.id,
   );
   if (oldRecord) {
     const result = await call(() => disputeAttendance(oldRecord.id));
@@ -306,7 +307,7 @@ async function main() {
     await call(() => updateMyWorkerProfile({ neighborhood: "Granbery" })),
   );
   assert.equal(patched.neighborhood, "Granbery");
-  assert.equal(patched.id, CURRENT_WORKER_ID);
+  assert.equal(patched.id, currentWorkerId);
   expectError(
     await call(() => updateMyWorkerProfile({ phone: "sem-formato-e164" })),
     "validation_error",

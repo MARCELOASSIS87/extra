@@ -28,8 +28,11 @@ Estas regras são jurídicas antes de serem técnicas. Violá-las quebra o model
 4. **Não garantimos nada.** Nem idoneidade, nem comparecimento, nem qualidade.
 5. **Sem texto livre em avaliação.** `AttendanceRecord` é binário (`present`/`absent`). Nunca adicionar `rating`, `stars`, `score` ou `comment` — texto livre é o que gera ação por dano moral.
 6. **Sem verificação de antecedentes criminais.** Identificamos quem é a pessoa; não julgamos o passado dela.
-7. **Sem chat interno.** As partes trocam contato e conversam pelo WhatsApp.
-8. **Bloqueio de menores de 18 anos** no cadastro (ECA Digital, Lei 15.211/2025).
+7. **Quem não tem histórico nunca exibe `0 presenças`.** Exibe **"Novo por aqui"**, em tom neutro, ao lado do selo de perfil completo. Reputação sem rampa de entrada tranca o novato para sempre: não é chamado porque não tem histórico, e não tem histórico porque não é chamado. Ver §16.6 da especificação.
+8. **Contato nunca aparece em página pública.** `contactPhone` não faz parte do payload público de `JobPost`. O telefone da empresa só é servido a quem tem candidatura ativa naquela vaga; o telefone do trabalhador só aparece para a empresa daquela vaga. Sem isso não há candidatura, não há dado, não há produto — e a vaga vira alvo fácil de raspagem. Ver §16.5.
+9. **Não marcar significa `not_selected`, nunca falta.** A marcação de presença tem três saídas: não chamei / compareceu / não compareceu. Só `absent` conta como falta. `not_selected` é neutro, nunca aparece no perfil público e é aplicado automaticamente após 7 dias sem marcação. Ver §16.7.
+10. **Sem chat interno.** As partes trocam contato e conversam pelo WhatsApp.
+11. **Bloqueio de menores de 18 anos** no cadastro (ECA Digital, Lei 15.211/2025).
 
 ### Vocabulário proibido na interface
 
@@ -169,6 +172,8 @@ chat interno · estrelas, notas ou comentários · processamento do pagamento do
 
 - [ ] Nenhum tipo de domínio declarado fora de `packages/shared`
 - [ ] Nenhum import direto de `src/mocks/` em componente
+- [ ] Nenhum telefone de contato em payload ou página pública
+- [ ] Trabalhador sem histórico exibindo "Novo por aqui", não "0 presenças"
 - [ ] Toda copy nova conferida contra o vocabulário proibido
 - [ ] Validação existe no schema compartilhado, não só no formulário
 - [ ] Estados de carregamento, vazio e erro implementados

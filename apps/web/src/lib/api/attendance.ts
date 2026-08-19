@@ -6,8 +6,8 @@ import type {
 import type { JobPost } from "@extra/shared/types/job";
 import type { WorkerPublicProfile } from "@extra/shared/types/worker";
 import {
-  CURRENT_WORKER_ID,
   getCurrentCompanyId,
+  getCurrentWorkerId,
   nowIso,
   randomId,
   store,
@@ -113,13 +113,12 @@ export async function listAttendancePending(): Promise<
 export async function listMyAttendance(): Promise<
   ApiResult<AttendanceRecord[]>
 > {
+  const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const now = nowIso();
     return ok(
       store.attendanceRecords
-        .filter(
-          (item) => item.workerId === CURRENT_WORKER_ID && item.expiresAt > now,
-        )
+        .filter((item) => item.workerId === workerId && item.expiresAt > now)
         .sort((a, b) => b.markedAt.localeCompare(a.markedAt)),
     );
   });
@@ -132,10 +131,11 @@ export async function listMyAttendance(): Promise<
 export async function disputeAttendance(
   id: string,
 ): Promise<ApiResult<AttendanceRecord>> {
+  const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const record = store.attendanceRecords.find((item) => item.id === id);
     if (!record) return err("attendance_not_found", "Registro não encontrado.");
-    if (record.workerId !== CURRENT_WORKER_ID) {
+    if (record.workerId !== workerId) {
       return err("forbidden", "Este registro é de outra pessoa.");
     }
     if (record.status === "disputed") {

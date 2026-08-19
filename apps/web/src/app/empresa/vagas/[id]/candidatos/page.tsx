@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MessageCircle, UserRound, WifiOff } from "lucide-react";
 import { listMyCompanyJobs } from "@/lib/api/companies";
 import { listJobCandidates } from "@/lib/api/applications";
+import { WorkerAttendanceSummary } from "@/components/company/worker-attendance-summary";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -66,13 +68,17 @@ export default async function JobCandidatesPage({
             {candidatesResult.data.map(({ application, worker, workerPhone }) => (
               <li key={application.id} className="rounded-xl border p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
-                  <p className="min-w-0 truncate font-medium">
+                  <Link
+                    href={`/empresa/vagas/${id}/candidatos/${worker.id}`}
+                    className="min-w-0 truncate font-medium hover:underline"
+                  >
                     {worker.firstName} {worker.lastNameInitial}
-                  </p>
+                  </Link>
                   <span className="bg-secondary text-secondary-foreground shrink-0 rounded-md px-2 py-1 text-xs font-medium">
                     Código {application.shortCode}
                   </span>
                 </div>
+                <WorkerAttendanceSummary worker={worker} />
                 <p className="text-muted-foreground mt-1 text-sm">
                   {worker.neighborhood}
                   {worker.experience && ` · ${worker.experience}`}

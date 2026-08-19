@@ -2,8 +2,8 @@ import type { ApiResult, Paginated } from "@extra/shared/types/api";
 import type { JobFilters, JobPost, JobPostContact } from "@extra/shared/types/job";
 import { jobPostSchema, type JobPostInput } from "@extra/shared/schemas/job";
 import {
-  CURRENT_WORKER_ID,
   getCurrentCompanyId,
+  getCurrentWorkerId,
   nowIso,
   randomId,
   store,
@@ -133,11 +133,12 @@ export async function createJob(
 export async function getJobContact(
   jobId: string,
 ): Promise<ApiResult<JobPostContact>> {
+  const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const hasActiveApplication = store.applications.some(
       (item) =>
         item.jobPostId === jobId &&
-        item.workerId === CURRENT_WORKER_ID &&
+        item.workerId === workerId &&
         item.status !== "withdrawn",
     );
     if (!hasActiveApplication) {

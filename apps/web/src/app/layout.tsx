@@ -2,9 +2,19 @@ import type { Metadata, Viewport } from "next";
 import { CITY } from "@extra/shared/constants/city";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { DemoBar } from "@/components/layout/demo-bar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import {
+  DEMO_COMPANY_COOKIE,
+  DEMO_WORKER_COOKIE,
+  getCurrentCompanyId,
+  getCurrentWorkerId,
+  getDemoCompanyOptions,
+  getDemoWorkerOptions,
+  isMockMode,
+} from "@/lib/api/mock";
 import { isAuthenticated } from "@/lib/api/session";
 
 // Uma família só, três pesos: cada peso ausente força o navegador a
@@ -62,6 +72,17 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         >
           Pular para o conteúdo
         </a>
+
+        {isMockMode && (
+          <DemoBar
+            workerCookieName={DEMO_WORKER_COOKIE}
+            workers={getDemoWorkerOptions()}
+            currentWorkerId={await getCurrentWorkerId()}
+            companyCookieName={DEMO_COMPANY_COOKIE}
+            companies={getDemoCompanyOptions()}
+            currentCompanyId={await getCurrentCompanyId()}
+          />
+        )}
 
         <SiteHeader authenticated={authenticated} />
 
