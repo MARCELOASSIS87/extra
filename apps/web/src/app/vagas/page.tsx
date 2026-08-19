@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SearchX } from "lucide-react";
-import type { JobRole } from "@extra/shared/types/job";
+import { RefreshCw, SearchX, WifiOff } from "lucide-react";
 import type { JobFiltersInput } from "@extra/shared/schemas/job";
 import { CITY } from "@extra/shared/constants/city";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
@@ -19,10 +18,6 @@ export const metadata: Metadata = {
   title: "Vagas abertas",
   description: `Todas as vagas de trabalho extra abertas em ${CITY}. Filtre por função, data e bairro.`,
 };
-
-const ROLE_OPTIONS = (Object.keys(JOB_ROLE_LABELS) as JobRole[]).map(
-  (value) => ({ value, label: JOB_ROLE_LABELS[value] }),
-);
 
 export default async function JobsPage({ searchParams }: PageProps<"/vagas">) {
   const filters = parseJobSearchParams(await searchParams);
@@ -44,17 +39,16 @@ export default async function JobsPage({ searchParams }: PageProps<"/vagas">) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
-      <h1 className="text-balance text-2xl font-semibold tracking-tight">
+      <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
         Vagas abertas
       </h1>
-      <p className="text-muted-foreground mt-2">
+      <p className="text-muted-foreground mt-2 text-sm">
         Você se candidata e combina o resto direto com a empresa.
       </p>
 
       <div className="mt-6">
         <JobFilters
           filters={filters}
-          roleOptions={ROLE_OPTIONS}
           neighborhoods={
             neighborhoodsResult.ok ? neighborhoodsResult.data : null
           }
@@ -105,8 +99,12 @@ export default async function JobsPage({ searchParams }: PageProps<"/vagas">) {
 
 function ErrorState() {
   return (
-    <div className="rounded-lg border border-dashed p-6 text-center">
-      <p className="font-medium">Não foi possível carregar as vagas.</p>
+    <div className="rounded-xl border border-dashed p-6 text-center">
+      <WifiOff
+        aria-hidden="true"
+        className="text-muted-foreground/60 mx-auto size-8"
+      />
+      <p className="mt-3 font-medium">Não foi possível carregar as vagas.</p>
       <p className="text-muted-foreground mt-1 text-sm">
         Pode ter sido a conexão. Tente de novo em alguns segundos.
       </p>
@@ -114,6 +112,7 @@ function ErrorState() {
         href="/vagas"
         className={cn(buttonVariants({ variant: "outline" }), "mt-4 h-11")}
       >
+        <RefreshCw aria-hidden="true" className="size-4" />
         Tentar de novo
       </Link>
     </div>
@@ -122,7 +121,7 @@ function ErrorState() {
 
 function OutOfRangeState({ filters }: { filters: JobFiltersInput }) {
   return (
-    <div className="rounded-lg border border-dashed p-6 text-center">
+    <div className="rounded-xl border border-dashed p-6 text-center">
       <p className="font-medium">Esta página não tem vagas.</p>
       <p className="text-muted-foreground mt-1 text-sm">
         Existem vagas abertas, mas não nesta página.
@@ -156,10 +155,10 @@ function EmptyState({
   ].filter(Boolean);
 
   return (
-    <div className="rounded-lg border border-dashed p-6 text-center">
+    <div className="rounded-xl border border-dashed p-6 text-center">
       <SearchX
         aria-hidden="true"
-        className="text-muted-foreground mx-auto size-8"
+        className="text-muted-foreground/50 mx-auto size-12"
       />
       <p className="mt-3 font-medium">
         {filtered

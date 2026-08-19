@@ -35,7 +35,7 @@ export function MobileNav({ authenticated }: { authenticated: boolean }) {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`focus-visible:ring-ring flex h-16 flex-col items-center justify-center gap-1 px-1 text-center text-xs font-medium focus-visible:outline-none focus-visible:-outline-offset-2 focus-visible:ring-2 ${
+                className={`focus-visible:ring-ring flex h-16 flex-col items-center justify-center gap-1 px-1 text-center text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:-outline-offset-2 focus-visible:ring-2 ${
                   active ? "text-foreground" : "text-muted-foreground"
                 }`}
               >

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { CircleCheck } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { Company } from "@extra/shared/types/company";
@@ -14,7 +15,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const fieldClass =
-  "border-input bg-background focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 h-11 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none aria-invalid:ring-3";
+  "border-input bg-background focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 h-11 w-full rounded-md border px-3 text-sm transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none aria-invalid:ring-3";
 
 const labelClass = "text-sm font-medium";
 
@@ -184,7 +185,7 @@ export function CompanyRegistrationForm() {
             aria-invalid={!!errors.termsAccepted || undefined}
             {...register("termsAccepted")}
           />
-          <span>Li e aceito os termos de uso da Extra.</span>
+          <span>Li e aceito os termos de uso da Extraqui.</span>
         </label>
         {errors.termsAccepted && (
           <p role="alert" className={errorClass}>
@@ -212,8 +213,11 @@ export function CompanyRegistrationForm() {
 
 function SuccessState({ company }: { company: Company }) {
   return (
-    <div className="mt-6 rounded-lg border border-dashed p-6 text-center">
-      <p className="font-medium">Cadastro de {company.tradeName} recebido.</p>
+    <div className="mt-6 rounded-xl border border-dashed p-6 text-center">
+      <CircleCheck aria-hidden="true" className="text-primary mx-auto size-8" />
+      <p className="mt-3 font-medium">
+        Cadastro de {company.tradeName} recebido.
+      </p>
       <p className="text-muted-foreground mt-1 text-sm">
         Já dá para publicar sua primeira vaga.
       </p>

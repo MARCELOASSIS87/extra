@@ -11,7 +11,7 @@ import {
 import { disputeAttendance, markAttendance } from "./attendance";
 import { createWorker, updateMyWorkerProfile } from "./workers";
 import { createCompany, listMyCompanyJobs } from "./companies";
-import { CURRENT_COMPANY_ID, CURRENT_WORKER_ID, store } from "./mock";
+import { CURRENT_WORKER_ID, getCurrentCompanyId, store } from "./mock";
 
 // A camada falha de propósito em ~5% das chamadas; o teste repete só nesse caso.
 async function call<T>(fn: () => Promise<ApiResult<T>>): Promise<ApiResult<T>> {
@@ -35,6 +35,8 @@ const expectError = <T>(result: ApiResult<T>, code: string) => {
 };
 
 async function main() {
+  const currentCompanyId = await getCurrentCompanyId();
+
   // --- listagem pública -------------------------------------------------------
   const firstPage = unwrap(await call(() => listJobs()));
   assert.ok(
@@ -99,7 +101,7 @@ async function main() {
 
   const created = unwrap(await call(() => createJob(validJob)));
   assert.equal(created.status, "open");
-  assert.equal(created.companyId, CURRENT_COMPANY_ID);
+  assert.equal(created.companyId, currentCompanyId);
   assert.ok(created.slug.startsWith("garcom-para-evento-de-teste-"));
   assert.ok(
     unwrap(await call(() => getJobBySlug(created.slug)))?.id === created.id,
@@ -170,7 +172,7 @@ async function main() {
   // --- presença ---------------------------------------------------------------
   const today = new Date().toISOString().slice(0, 10);
   const pastJob = store.jobPosts.find(
-    (job) => job.companyId === CURRENT_COMPANY_ID && job.date < today,
+    (job) => job.companyId === currentCompanyId && job.date < today,
   );
   assert.ok(pastJob, "fixtures precisam de uma vaga passada da empresa atual");
 
@@ -201,10 +203,12 @@ async function main() {
     ),
     {
       id: "seed-para-teste-de-presenca",
+      shortCode: "TEST",
       jobPostId: pastJob.id,
       workerId: CURRENT_WORKER_ID,
       status: "confirmed",
       appliedAt: `${pastJob.date}T09:00:00.000Z`,
+      contactedAt: null,
       confirmedAt: `${pastJob.date}T18:00:00.000Z`,
     },
   ];

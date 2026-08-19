@@ -177,7 +177,6 @@ chat interno · estrelas, notas ou comentários · processamento do pagamento do
 
 ---
 
-
 ## Ritmo de trabalho
 
 Quem verifica o resultado visual é o desenvolvedor, olhando o navegador.
@@ -195,6 +194,10 @@ NÃO faça, a menos que eu peça explicitamente:
 Faça a alteração, diga em duas linhas o que mudou e em quais arquivos, e pare.
 Se algo ficou incerto ou você teve que decidir algo por conta, diga qual foi
 a decisão — mas não vá verificar.
+
+Responda em no máximo 3 linhas: o que mudou e em quais arquivos.
+Sem relatório, sem explicar raciocínio, sem justificar decisão técnica.
+Se algo ficou ambíguo, pergunte em uma linha.
 
 ## Como pedir tarefas neste repositório
 

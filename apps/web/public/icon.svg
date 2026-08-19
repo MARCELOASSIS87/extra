@@ -1,9 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Extra">
-  <rect width="512" height="512" rx="112" fill="#171717" />
-  <g fill="#ffffff">
-    <rect x="160" y="128" width="48" height="256" rx="8" />
-    <rect x="160" y="128" width="192" height="48" rx="8" />
-    <rect x="160" y="232" width="152" height="48" rx="8" />
-    <rect x="160" y="336" width="192" height="48" rx="8" />
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Extraqui">
+  <rect width="512" height="512" rx="112" fill="#027A48" />
+  <text
+    x="256"
+    y="278"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    font-weight="700"
+    font-size="288"
+    fill="#ffffff"
+  >E</text>
 </svg>

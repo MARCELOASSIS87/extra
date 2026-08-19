@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Logo } from "@/components/brand/logo";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { headerNavItems } from "@/lib/navigation";
+import { isMockMode } from "@/lib/api/mock";
 
 /**
  * Cabeçalho fixo. Em 360px cabe só a marca e o botão de entrar; os destinos
@@ -15,9 +17,9 @@ export function SiteHeader({ authenticated }: { authenticated: boolean }) {
       <div className="mx-auto flex h-14 w-full max-w-3xl items-center gap-3 px-4">
         <Link
           href="/"
-          className="focus-visible:ring-ring rounded-md text-lg font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2"
+          className="focus-visible:ring-ring rounded-md focus-visible:outline-none focus-visible:ring-2"
         >
-          Extra
+          <Logo />
         </Link>
 
         <nav aria-label="Navegação principal" className="ml-4 hidden md:block">
@@ -26,7 +28,7 @@ export function SiteHeader({ authenticated }: { authenticated: boolean }) {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring rounded-md px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2"
+                  className="text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2"
                 >
                   {item.label}
                 </Link>
@@ -50,6 +52,14 @@ export function SiteHeader({ authenticated }: { authenticated: boolean }) {
           >
             Publicar vaga
           </Link>
+          {isMockMode && (
+            <Link
+              href="/empresa"
+              className={cn(buttonVariants({ variant: "ghost" }), "hidden sm:inline-flex")}
+            >
+              Área da empresa
+            </Link>
+          )}
           {!authenticated && (
             <Link href="/entrar" className={buttonVariants()}>
               Entrar

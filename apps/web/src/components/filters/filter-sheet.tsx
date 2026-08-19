@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, type LucideIcon } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 export type FilterOption<T extends string = string> = {
   value: T;
   label: string;
+  /** Opcional: bairro não tem ícone, função tem. */
+  icon?: LucideIcon;
 };
 
 /**
@@ -43,6 +45,7 @@ export function FilterSheet<T extends string>({
 }) {
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value);
+  const SelectedIcon = selected?.icon;
 
   const choose = (next: T | null) => {
     setOpen(false);
@@ -56,13 +59,18 @@ export function FilterSheet<T extends string>({
           <button
             type="button"
             // h-12 = 48px: alvo confortável e claramente tocável.
-            className="border-input bg-background hover:bg-muted focus-visible:ring-ring flex h-12 w-full items-center justify-between gap-3 rounded-lg border px-4 text-left focus-visible:outline-none focus-visible:ring-2"
+            className="border-input bg-background hover:bg-muted focus-visible:ring-ring flex h-12 w-full items-center justify-between gap-3 rounded-lg border px-4 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2"
           />
         }
       >
-        <span className="min-w-0 truncate">
-          <span className="text-muted-foreground">{label}: </span>
-          <span className="font-medium">{selected?.label ?? emptyLabel}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          {SelectedIcon && (
+            <SelectedIcon aria-hidden="true" className="size-4 shrink-0" />
+          )}
+          <span className="truncate">
+            <span className="text-muted-foreground">{label}: </span>
+            <span className="font-medium">{selected?.label ?? emptyLabel}</span>
+          </span>
         </span>
         <ChevronDown
           aria-hidden="true"
@@ -92,6 +100,7 @@ export function FilterSheet<T extends string>({
             <FilterOptionItem
               key={option.value}
               label={option.label}
+              icon={option.icon}
               selected={option.value === value}
               onSelect={() => choose(option.value)}
             />
@@ -104,10 +113,12 @@ export function FilterSheet<T extends string>({
 
 function FilterOptionItem({
   label,
+  icon: Icon,
   selected,
   onSelect,
 }: {
   label: string;
+  icon?: LucideIcon;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -119,13 +130,16 @@ function FilterOptionItem({
         aria-current={selected ? "true" : undefined}
         // min-h-13 = 52px
         className={cn(
-          "focus-visible:ring-ring min-h-13 flex w-full items-center justify-between gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:-outline-offset-2 focus-visible:ring-2",
+          "focus-visible:ring-ring min-h-13 flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:-outline-offset-2 focus-visible:ring-2",
           selected
             ? "bg-accent text-accent-foreground font-medium"
             : "hover:bg-muted",
         )}
       >
-        {label}
+        <span className="flex min-w-0 items-center gap-3">
+          {Icon && <Icon aria-hidden="true" className="size-5 shrink-0" />}
+          <span className="truncate">{label}</span>
+        </span>
         {selected && <Check aria-hidden="true" className="size-5 shrink-0" />}
       </button>
     </li>

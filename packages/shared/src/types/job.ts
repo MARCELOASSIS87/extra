@@ -40,9 +40,17 @@ export interface JobPost {
   city: string;
   requirements: string | null; // uniforme etc — exigência DA EMPRESA
   vacancies: number;
-  contactPhone: string;
+  applicationsCount: number; // exibido no card; substitui o contato
+  maxApplications: number; // vacancies * 3 — ver §16.5
   status: JobStatus;
   isHighlighted: boolean;
   publishedAt: string;
   expiresAt: string;
+}
+
+// Nunca faz parte do payload público. Só é servido após candidatura ativa
+// (§16.5) — é o telefone que o trabalhador chama no WhatsApp.
+export interface JobPostContact {
+  jobPostId: string;
+  contactPhone: string;
 }

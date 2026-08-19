@@ -6,15 +6,13 @@ import {
   type CompanyRegistrationInput,
 } from "@extra/shared/schemas/company";
 import { CITY } from "@extra/shared/constants/city";
-import { CURRENT_COMPANY_ID, nowIso, randomId, store, withMock } from "./mock";
+import { getCurrentCompanyId, nowIso, randomId, store, withMock } from "./mock";
 import { err, ok } from "./result";
 
 export async function getMyCompany(): Promise<ApiResult<Company | null>> {
+  const companyId = await getCurrentCompanyId();
   return withMock(() =>
-    ok(
-      store.companies.find((company) => company.id === CURRENT_COMPANY_ID) ??
-        null,
-    ),
+    ok(store.companies.find((company) => company.id === companyId) ?? null),
   );
 }
 
@@ -60,10 +58,11 @@ export async function createCompany(
 
 /** Painel da empresa: as vagas dela em qualquer estado, mais recentes antes. */
 export async function listMyCompanyJobs(): Promise<ApiResult<JobPost[]>> {
+  const companyId = await getCurrentCompanyId();
   return withMock(() =>
     ok(
       store.jobPosts
-        .filter((job) => job.companyId === CURRENT_COMPANY_ID)
+        .filter((job) => job.companyId === companyId)
         .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)),
     ),
   );

@@ -3,12 +3,15 @@ import type {
   AttendanceMarkInput,
   AttendanceRecord,
 } from "@extra/shared/types/attendance";
+import type { JobPost } from "@extra/shared/types/job";
+import type { WorkerPublicProfile } from "@extra/shared/types/worker";
 import {
-  CURRENT_COMPANY_ID,
   CURRENT_WORKER_ID,
+  getCurrentCompanyId,
   nowIso,
   randomId,
   store,
+  toPublicProfile,
   withMock,
 } from "./mock";
 import { err, ok } from "./result";
@@ -23,10 +26,11 @@ export async function markAttendance(
   jobId: string,
   input: AttendanceMarkInput,
 ): Promise<ApiResult<AttendanceRecord>> {
+  const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const job = store.jobPosts.find((item) => item.id === jobId);
     if (!job) return err("job_not_found", "Vaga não encontrada.");
-    if (job.companyId !== CURRENT_COMPANY_ID) {
+    if (job.companyId !== companyId) {
       return err("forbidden", "Esta vaga é de outra empresa.");
     }
     if (job.date >= nowIso().slice(0, 10)) {
@@ -70,6 +74,38 @@ export async function markAttendance(
 
     store.attendanceRecords = [...store.attendanceRecords, record];
     return ok(record);
+  });
+}
+
+/**
+ * POST /v1/jobs/:id/attendance — vagas já realizadas com candidato ainda sem
+ * presença marcada (§16.4): a pendência que o painel da empresa mostra.
+ */
+export async function listAttendancePending(): Promise<
+  ApiResult<{ job: JobPost; worker: WorkerPublicProfile }[]>
+> {
+  const companyId = await getCurrentCompanyId();
+  return withMock(() => {
+    const today = nowIso().slice(0, 10);
+    const items = store.applications
+      .filter((item) => item.status !== "withdrawn")
+      .flatMap((item) => {
+        const job = store.jobPosts.find((j) => j.id === item.jobPostId);
+        if (!job || job.companyId !== companyId || job.date >= today) {
+          return [];
+        }
+        const alreadyMarked = store.attendanceRecords.some(
+          (record) =>
+            record.jobPostId === job.id && record.workerId === item.workerId,
+        );
+        if (alreadyMarked) return [];
+        const worker = store.workers.find((w) => w.id === item.workerId);
+        if (!worker) return [];
+        return [{ job, worker: toPublicProfile(worker) }];
+      })
+      .sort((a, b) => a.job.date.localeCompare(b.job.date));
+
+    return ok(items);
   });
 }
 

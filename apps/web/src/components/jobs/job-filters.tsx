@@ -2,29 +2,28 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { JobRole } from "@extra/shared/types/job";
 import type { JobFiltersInput } from "@extra/shared/schemas/job";
-import {
-  FilterSheet,
-  type FilterOption,
-} from "@/components/filters/filter-sheet";
+import { FilterSheet } from "@/components/filters/filter-sheet";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { saveRole } from "@/lib/filter-preferences";
 import { hasActiveFilters, jobsHref, JOB_SEARCH_PARAM } from "@/lib/job-search";
+import { ROLE_FILTER_OPTIONS } from "@/lib/job-role-icons";
 
 /**
  * Os três filtros aplicam na hora, sem botão de confirmar: cada escolha vira
  * uma URL própria, então o voltar do Android desfaz filtro por filtro.
+ *
+ * ROLE_FILTER_OPTIONS vem de um import interno, não de prop: cada opção
+ * carrega um componente de ícone, e função não atravessa a fronteira
+ * servidor→cliente como prop (ver comentário em role-filter-sheet.tsx).
  */
 export function JobFilters({
   filters,
-  roleOptions,
   neighborhoods,
   today,
 }: {
   filters: JobFiltersInput;
-  roleOptions: readonly FilterOption<JobRole>[];
   /** `null` quando a busca de bairros falhou — o resto do filtro continua de pé. */
   neighborhoods: string[] | null;
   today: string;
@@ -38,14 +37,14 @@ export function JobFilters({
     });
 
   return (
-    <div className="bg-muted/40 rounded-lg border p-4">
-      <h2 className="text-base font-semibold">Filtrar vagas</h2>
+    <div className="bg-muted/40 rounded-xl border p-4">
+      <h2 className="text-base font-bold">Filtrar vagas</h2>
 
       <div className="mt-4 grid gap-3">
         <FilterSheet
           label="Função"
           value={filters.role ?? null}
-          options={roleOptions}
+          options={ROLE_FILTER_OPTIONS}
           onChange={(role) => {
             saveRole(role);
             apply({ role: role ?? undefined });
@@ -85,7 +84,7 @@ export function JobFilters({
             onChange={(event) =>
               apply({ date: event.target.value || undefined })
             }
-            className="border-input bg-background focus-visible:ring-ring h-12 w-full rounded-lg border px-4 text-sm focus-visible:outline-none focus-visible:ring-2"
+            className="border-input bg-background focus-visible:ring-ring h-12 w-full rounded-lg border px-4 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2"
           />
         </div>
       </div>

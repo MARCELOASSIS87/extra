@@ -5,8 +5,8 @@ import { CITY } from "@extra/shared/constants/city";
 // O push (§12) entra depois, junto com o SW próprio.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: `Extra — trabalho extra em ${CITY}`,
-    short_name: "Extra",
+    name: `Extraqui — trabalho extra em ${CITY}`,
+    short_name: "Extraqui",
     description: `Vagas de trabalho extra por diária em ${CITY}. Cadastro gratuito para quem procura trabalho.`,
     lang: "pt-BR",
     dir: "ltr",

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function CadastroEmpresaPage() {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-8">
-      <h1 className="text-balance text-2xl font-semibold tracking-tight">
+      <h1 className="text-balance text-3xl font-bold tracking-tight">
         Cadastro da empresa
       </h1>
       <p className="text-muted-foreground mt-2 text-sm">

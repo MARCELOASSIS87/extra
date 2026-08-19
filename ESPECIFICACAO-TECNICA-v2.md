@@ -262,11 +262,19 @@ export interface JobPost {
   city: string
   requirements: string | null   // uniforme etc — exigência DA EMPRESA
   vacancies: number
-  contactPhone: string
+  applicationsCount: number     // exibido no card; substitui o contato
+  maxApplications: number       // vacancies * 3 — ver §16.5
   status: JobStatus
   isHighlighted: boolean
   publishedAt: string
   expiresAt: string
+}
+```
+
+// Nunca faz parte do payload público. Só é servido após candidatura ativa.
+export interface JobPostContact {
+  jobPostId: string
+  contactPhone: string
 }
 ```
 
@@ -276,10 +284,12 @@ export type ApplicationStatus = 'applied' | 'confirmed' | 'withdrawn' | 'no_resp
 
 export interface Application {
   id: string
+  shortCode: string             // 4 caracteres, ex "A7K2" — vai na mensagem (§16.5)
   jobPostId: string
   workerId: string
   status: ApplicationStatus
   appliedAt: string
+  contactedAt: string | null    // quando tocou em "Falar no WhatsApp"
   confirmedAt: string | null    // confirmação de véspera
 }
 ```
@@ -331,8 +341,10 @@ GET    /v1/jobs/:slug
 POST   /v1/jobs                     [empresa]
 PATCH  /v1/jobs/:id/close           [empresa]
 
-POST   /v1/jobs/:id/applications    [trabalhador]
+POST   /v1/jobs/:id/applications    [trabalhador]  409 se atingiu maxApplications
 GET    /v1/me/applications          [trabalhador]
+GET    /v1/jobs/:id/contact         [trabalhador]  403 sem candidatura ativa
+POST   /v1/applications/:id/contacted [trabalhador] registra contactedAt
 POST   /v1/applications/:id/confirm [trabalhador]  confirmação de véspera
 
 GET    /v1/jobs/:id/applicants      [empresa] → WorkerPublicProfile[]
@@ -629,6 +641,49 @@ A fricção é intencional — filtra quem não faria o esforço de acordar às 
 **16.2 Publicação → notificação → candidatura.** Empresa publica → filtro de conteúdo → vaga `open` → job seleciona por `role` + região + disponibilidade → dispara Web Push → trabalhador se candidata → empresa vê a lista e chama no WhatsApp.
 
 **O tempo entre publicar e a primeira notificação chegar é a métrica técnica mais importante do produto. Meta: menos de 60 segundos.**
+
+**16.5 Revelação de contato — o mecanismo central do produto.**
+
+O telefone **nunca** aparece em página pública. Se aparecesse, o trabalhador
+mandaria mensagem direto e a plataforma não registraria nada — sem candidatura,
+sem dado, sem histórico, sem produto. Também seria convite a raspagem: um robô
+baixaria todas as vagas e remontaria o grupo de WhatsApp concorrente numa tarde.
+
+Fluxo do trabalhador:
+
+1. Abre a vaga. Vê tudo — função, data, valor, local, exigências. **Não vê o telefone**
+2. Toca em **"Quero essa vaga"** → cria a `Application` com `shortCode`
+3. A tela passa a mostrar: **"Candidatura registrada. Você aparece no painel da empresa. Chame no WhatsApp para combinar os detalhes."**
+   - Nunca escrever "a empresa foi notificada": é promessa sobre terceiro que não controlamos
+4. Botão **"Falar no WhatsApp"** abre `wa.me` com mensagem pronta e grava `contactedAt`
+
+Mensagem pré-preenchida:
+
+```
+Oi! Sou João Silva.
+Me candidatei à vaga de Garçom para casamento em Cascatinha,
+sábado 22/08 às 17h.
+Código: A7K2
+— via extraqui.com.br
+```
+
+Três funções nessa mensagem: identifica quem é (a empresa recebe várias),
+o `shortCode` casa a conversa com a candidatura no painel — o que faz a
+marcação de presença funcionar depois — e a última linha coloca a marca dentro
+do WhatsApp de cada contratante da cidade, de graça. É o canal de aquisição mais
+barato do projeto e nasce de uma linha de texto.
+
+Fluxo da empresa: o painel mostra os candidatos com `shortCode`, perfil público
+e botão de WhatsApp. O telefone do trabalhador só aparece para quem se candidatou
+àquela vaga.
+
+**Teto de candidaturas:** `maxApplications = vacancies * 3`. Atingido o teto, a
+vaga para de aceitar e exibe "candidatos suficientes". Protege o contratante —
+que é o cliente pagante — de receber trinta mensagens por uma vaga de seis.
+
+**Métrica que isso destrava:** a razão entre `appliedAt` e `contactedAt`. Muitas
+candidaturas com poucos contatos significa fluxo quebrado, e você descobre pelo
+dado antes de alguém reclamar.
 
 **16.3 Confirmação de véspera.** Job diário às 18h notifica os candidatos das vagas do dia seguinte. Sem confirmação até 18h, a vaga reabre e a empresa é avisada. Não confirmar **não gera falta** — é aviso, não punição.
 

@@ -1,7 +1,14 @@
 import type { ApiResult, Paginated } from "@extra/shared/types/api";
-import type { JobFilters, JobPost } from "@extra/shared/types/job";
+import type { JobFilters, JobPost, JobPostContact } from "@extra/shared/types/job";
 import { jobPostSchema, type JobPostInput } from "@extra/shared/schemas/job";
-import { CURRENT_COMPANY_ID, nowIso, randomId, store, withMock } from "./mock";
+import {
+  CURRENT_WORKER_ID,
+  getCurrentCompanyId,
+  nowIso,
+  randomId,
+  store,
+  withMock,
+} from "./mock";
 import { err, ok } from "./result";
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -81,6 +88,7 @@ export async function listOpenJobNeighborhoods(): Promise<ApiResult<string[]>> {
 export async function createJob(
   input: JobPostInput,
 ): Promise<ApiResult<JobPost>> {
+  const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const parsed = jobPostSchema.safeParse(input);
     if (!parsed.success) {
@@ -88,20 +96,21 @@ export async function createJob(
       return err("validation_error", issue.message, issue.path.join("."));
     }
 
-    const company = store.companies.find(
-      (item) => item.id === CURRENT_COMPANY_ID,
-    );
+    const company = store.companies.find((item) => item.id === companyId);
     if (!company) {
       return err("company_not_found", "Empresa não encontrada.");
     }
 
-    const data = parsed.data;
+    const { contactPhone, ...data } = parsed.data;
+    const jobId = randomId();
     const job: JobPost = {
       ...data,
-      id: randomId(),
+      id: jobId,
       slug: `${slugify(data.title)}-${randomId().slice(0, 6)}`,
       companyId: company.id,
       city: company.city,
+      applicationsCount: 0,
+      maxApplications: data.vacancies * 3,
       status: "open",
       isHighlighted: false,
       publishedAt: nowIso(),
@@ -109,16 +118,48 @@ export async function createJob(
     };
 
     store.jobPosts = [job, ...store.jobPosts];
+    store.jobPostContacts = [
+      ...store.jobPostContacts,
+      { jobPostId: jobId, contactPhone },
+    ];
     return ok(job);
+  });
+}
+
+/**
+ * GET /v1/jobs/:id/contact — o telefone nunca sai no payload público (§16.5).
+ * Só libera para quem tem candidatura ativa (não retirada) nesta vaga.
+ */
+export async function getJobContact(
+  jobId: string,
+): Promise<ApiResult<JobPostContact>> {
+  return withMock(() => {
+    const hasActiveApplication = store.applications.some(
+      (item) =>
+        item.jobPostId === jobId &&
+        item.workerId === CURRENT_WORKER_ID &&
+        item.status !== "withdrawn",
+    );
+    if (!hasActiveApplication) {
+      return err("forbidden", "Candidate-se para ver o contato.");
+    }
+
+    const contact = store.jobPostContacts.find(
+      (item) => item.jobPostId === jobId,
+    );
+    if (!contact) return err("job_not_found", "Vaga não encontrada.");
+
+    return ok(contact);
   });
 }
 
 /** PATCH /v1/jobs/:id/close — a empresa fecha a vaga quando já se acertou. */
 export async function closeJob(id: string): Promise<ApiResult<JobPost>> {
+  const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const job = store.jobPosts.find((item) => item.id === id);
     if (!job) return err("job_not_found", "Vaga não encontrada.");
-    if (job.companyId !== CURRENT_COMPANY_ID) {
+    if (job.companyId !== companyId) {
       return err("forbidden", "Esta vaga é de outra empresa.");
     }
     if (job.status !== "open") {
