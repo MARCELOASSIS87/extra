@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { isAuthenticated } from "@/lib/api/session";
+import { getSessionRole } from "@/lib/api/session";
 import { isMockMode } from "@/lib/api/mock";
 
 /**
@@ -11,7 +11,7 @@ import { isMockMode } from "@/lib/api/mock";
 export default async function EmpresaLayout({
   children,
 }: LayoutProps<"/empresa">) {
-  if (!isMockMode && !(await isAuthenticated())) {
+  if (!isMockMode && (await getSessionRole()) === "anonymous") {
     redirect("/entrar");
   }
 

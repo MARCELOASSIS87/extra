@@ -1,16 +1,14 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { headerNavItems } from "@/lib/navigation";
-import { isMockMode } from "@/lib/api/mock";
+import { navItems } from "@/lib/navigation";
+import type { SessionRole } from "@/lib/api/session";
 
 /**
- * Cabeçalho fixo. Em 360px cabe só a marca e o botão de entrar; os destinos
- * ficam na barra inferior. A partir de md os links aparecem aqui.
+ * Cabeçalho fixo. Em 360px cabe só a marca; os destinos vivem na barra
+ * inferior. A partir de md os links aparecem aqui também.
  */
-export function SiteHeader({ authenticated }: { authenticated: boolean }) {
-  const items = headerNavItems(authenticated);
+export function SiteHeader({ role }: { role: SessionRole }) {
+  const items = navItems(role);
 
   return (
     <header className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
@@ -22,7 +20,7 @@ export function SiteHeader({ authenticated }: { authenticated: boolean }) {
           <Logo />
         </Link>
 
-        <nav aria-label="Navegação principal" className="ml-4 hidden md:block">
+        <nav aria-label="Navegação principal" className="ml-auto hidden md:block">
           <ul className="flex items-center gap-1">
             {items.map((item) => (
               <li key={item.href}>
@@ -36,36 +34,6 @@ export function SiteHeader({ authenticated }: { authenticated: boolean }) {
             ))}
           </ul>
         </nav>
-
-        {/* Links de verdade, estilizados como botão: nenhum JS de cliente
-            precisa descer só para navegar. */}
-        <div className="ml-auto flex items-center gap-2">
-          {/* cn() resolve o conflito entre `hidden` e o `inline-flex` da base
-              do botão. Aqui é Server Component: tailwind-merge não desce pro
-              navegador. */}
-          <Link
-            href="/empresa/vagas/nova"
-            className={cn(
-              buttonVariants({ variant: "ghost" }),
-              "hidden sm:inline-flex",
-            )}
-          >
-            Publicar vaga
-          </Link>
-          {isMockMode && (
-            <Link
-              href="/empresa"
-              className={cn(buttonVariants({ variant: "ghost" }), "hidden sm:inline-flex")}
-            >
-              Área da empresa
-            </Link>
-          )}
-          {!authenticated && (
-            <Link href="/entrar" className={buttonVariants()}>
-              Entrar
-            </Link>
-          )}
-        </div>
       </div>
     </header>
   );

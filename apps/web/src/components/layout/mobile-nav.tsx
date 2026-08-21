@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isActivePath, navItems } from "@/lib/navigation";
+import type { SessionRole } from "@/lib/api/session";
 
 // Sem cn() aqui de propósito: tailwind-merge custa ~10 KB comprimidos e este
 // é o único componente de cliente do layout. Não há classe conflitante para
@@ -13,12 +14,12 @@ import { isActivePath, navItems } from "@/lib/navigation";
  * Fica fora do fluxo, então o <body> reserva a altura dela embaixo.
  * Cada alvo tem 64px de altura: dedo em ônibus, não mouse em desktop.
  *
- * Recebe só o booleano: componente de ícone não atravessa a fronteira
+ * Recebe só o papel: componente de ícone não atravessa a fronteira
  * servidor→cliente, então a lista é montada aqui dentro.
  */
-export function MobileNav({ authenticated }: { authenticated: boolean }) {
+export function MobileNav({ role }: { role: SessionRole }) {
   const pathname = usePathname();
-  const items = navItems(authenticated);
+  const items = navItems(role);
 
   return (
     <nav

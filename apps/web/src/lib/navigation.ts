@@ -2,14 +2,16 @@ import {
   Briefcase,
   CircleUser,
   ClipboardList,
+  LayoutDashboard,
   LogIn,
   Plus,
 } from "lucide-react";
+import type { SessionRole } from "@/lib/api/session";
 
 const jobs = { href: "/", label: "Vagas", icon: Briefcase } as const;
 const applications = {
   href: "/candidaturas",
-  label: "Candidaturas",
+  label: "Minhas candidaturas",
   icon: ClipboardList,
 } as const;
 const profile = { href: "/perfil", label: "Perfil", icon: CircleUser } as const;
@@ -19,6 +21,12 @@ const postJob = {
   icon: Plus,
 } as const;
 const signIn = { href: "/entrar", label: "Entrar", icon: LogIn } as const;
+const panel = { href: "/empresa", label: "Painel", icon: LayoutDashboard } as const;
+const myJobs = {
+  href: "/empresa/vagas",
+  label: "Minhas vagas",
+  icon: Briefcase,
+} as const;
 
 export type NavItem = {
   href: string;
@@ -27,18 +35,18 @@ export type NavItem = {
 };
 
 /**
- * Candidaturas e Perfil só existem para quem tem sessão: levariam o visitante
- * a uma tela vazia ou a um pedido de login disfarçado de menu.
+ * Mesma lista para o menu do topo (desktop) e a barra inferior (celular) —
+ * "Área da empresa" nunca entra aqui: só existe na barra de demonstração.
  */
-export function navItems(authenticated: boolean): readonly NavItem[] {
-  return authenticated
-    ? [jobs, applications, profile]
-    : [jobs, postJob, signIn];
-}
-
-/** Links do cabeçalho em telas grandes; os atalhos de ação ficam à direita. */
-export function headerNavItems(authenticated: boolean): readonly NavItem[] {
-  return authenticated ? [jobs, applications, profile] : [jobs];
+export function navItems(role: SessionRole): readonly NavItem[] {
+  switch (role) {
+    case "worker":
+      return [jobs, applications, profile];
+    case "company":
+      return [panel, postJob, myJobs];
+    case "anonymous":
+      return [jobs, postJob, signIn];
+  }
 }
 
 export function isActivePath(pathname: string, href: string): boolean {

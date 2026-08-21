@@ -121,3 +121,20 @@ export const workerProfileUpdateSchema = workerStep2PhoneSchema
   .extend(workerStep6ReferencesSchema.shape)
   .partial();
 export type WorkerProfileUpdate = z.infer<typeof workerProfileUpdateSchema>;
+
+// Cadastro reduzido — destino do muro do botão "Quero essa vaga" quando quem
+// clica não está autenticado como trabalhador. Nome, telefone, funções e
+// bairro; sem CPF, selfie, vídeo ou referências — isso fica para as 6 etapas
+// completas do §16.1. Mesmo reduzido, mantém o bloqueio de menor de 18 anos.
+export const workerQuickRegistrationSchema = z.object({
+  fullName: z.string().trim().min(3, "Informe o nome completo"),
+  phone: phoneE164Schema,
+  birthDate: z.iso
+    .date("Data de nascimento inválida")
+    .refine(isAdult, "Cadastro permitido apenas para maiores de 18 anos"),
+  roles: z.array(jobRoleSchema).min(1, "Selecione ao menos uma função"),
+  neighborhood: z.string().trim().min(1, "Informe o bairro"),
+});
+export type WorkerQuickRegistrationInput = z.infer<
+  typeof workerQuickRegistrationSchema
+>;

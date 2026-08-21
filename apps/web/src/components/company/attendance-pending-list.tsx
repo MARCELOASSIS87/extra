@@ -32,7 +32,10 @@ export function AttendancePendingList({ items }: { items: PendingItem[] }) {
     );
   }
 
-  const mark = async (item: PendingItem, status: "present" | "absent") => {
+  const mark = async (
+    item: PendingItem,
+    status: "present" | "absent" | "not_selected",
+  ) => {
     const key = itemKey(item);
     setBusyKey(key);
     setErrorKey(null);
@@ -86,6 +89,17 @@ export function AttendancePendingList({ items }: { items: PendingItem[] }) {
                 )}
               >
                 Faltou
+              </button>
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => mark(item, "not_selected")}
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "sm" }),
+                  "flex-1",
+                )}
+              >
+                Não chamei
               </button>
             </div>
 

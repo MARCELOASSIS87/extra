@@ -2,8 +2,10 @@ import type { ApiResult } from "@extra/shared/types/api";
 import type { Worker } from "@extra/shared/types/worker";
 import {
   workerProfileUpdateSchema,
+  workerQuickRegistrationSchema,
   workerStep1IdentitySchema,
   type WorkerProfileUpdate,
+  type WorkerQuickRegistrationInput,
   type WorkerStep1Identity,
 } from "@extra/shared/schemas/worker";
 import { CITY } from "@extra/shared/constants/city";
@@ -45,6 +47,55 @@ export async function createWorker(
       city: CITY,
       neighborhood: "",
       roles: [],
+      experience: "",
+      availability: [],
+      documentSelfieKey: null,
+      introVideoKey: null,
+      references: [],
+      status: "incomplete",
+      attendance: { present: 0, absent: 0, distinctCompanies: 0 },
+      createdAt: nowIso(),
+    };
+
+    store.workers = [...store.workers, worker];
+    return ok(worker);
+  });
+}
+
+/**
+ * POST /v1/workers/quick — cadastro reduzido: nome, telefone, funções e
+ * bairro. É o destino do muro do "Quero essa vaga"; as 6 etapas completas do
+ * §16.1 (CPF, selfie, vídeo, referências) ficam para a tarefa 11. Sem CPF,
+ * `status` não sai de "incomplete" por aqui.
+ */
+export async function createWorkerQuick(
+  input: WorkerQuickRegistrationInput,
+): Promise<ApiResult<Worker>> {
+  return withMock(() => {
+    const parsed = workerQuickRegistrationSchema.safeParse(input);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return err("validation_error", issue.message, issue.path.join("."));
+    }
+
+    if (store.workers.some((worker) => worker.phone === parsed.data.phone)) {
+      return err(
+        "phone_already_registered",
+        "Este telefone já tem cadastro.",
+        "phone",
+      );
+    }
+
+    const worker: Worker = {
+      id: randomId(),
+      fullName: parsed.data.fullName,
+      phone: parsed.data.phone,
+      phoneVerifiedAt: null,
+      cpf: "",
+      birthDate: parsed.data.birthDate,
+      city: CITY,
+      neighborhood: parsed.data.neighborhood,
+      roles: parsed.data.roles,
       experience: "",
       availability: [],
       documentSelfieKey: null,

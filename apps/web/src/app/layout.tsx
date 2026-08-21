@@ -8,6 +8,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import {
   DEMO_COMPANY_COOKIE,
+  DEMO_ROLE_COOKIE,
   DEMO_WORKER_COOKIE,
   getCurrentCompanyId,
   getCurrentWorkerId,
@@ -15,7 +16,7 @@ import {
   getDemoWorkerOptions,
   isMockMode,
 } from "@/lib/api/mock";
-import { isAuthenticated } from "@/lib/api/session";
+import { getSessionRole } from "@/lib/api/session";
 
 // Uma família só, três pesos: cada peso ausente força o navegador a
 // sintetizar negrito, o que borra a letra. 400 corpo, 500 ênfase, 700 título.
@@ -57,7 +58,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // ponytail: ler o cookie aqui torna toda rota dinâmica. Quando o detalhe da
   // vaga precisar de SSG/ISR para indexar no Google (§15), esta leitura desce
   // para um componente sob <Suspense> com PPR.
-  const authenticated = await isAuthenticated();
+  const role = await getSessionRole();
 
   return (
     <html
@@ -75,6 +76,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
 
         {isMockMode && (
           <DemoBar
+            roleCookieName={DEMO_ROLE_COOKIE}
+            currentRole={role}
             workerCookieName={DEMO_WORKER_COOKIE}
             workers={getDemoWorkerOptions()}
             currentWorkerId={await getCurrentWorkerId()}
@@ -84,7 +87,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           />
         )}
 
-        <SiteHeader authenticated={authenticated} />
+        <SiteHeader role={role} />
 
         {/* min-w-0: <main> é o único item flex entre o conteúdo da página e a
             raiz. Sem isso, um filho com overflow-x pode esticar o item pela
@@ -94,7 +97,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </main>
 
         <SiteFooter />
-        <MobileNav authenticated={authenticated} />
+        <MobileNav role={role} />
       </body>
     </html>
   );

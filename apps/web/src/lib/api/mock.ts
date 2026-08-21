@@ -71,6 +71,7 @@ const DEFAULT_WORKER_ID = workers[0].id;
  */
 export const DEMO_COMPANY_COOKIE = "extra_demo_company";
 export const DEMO_WORKER_COOKIE = "extra_demo_worker";
+export const DEMO_ROLE_COOKIE = "extra_demo_role";
 
 /**
  * Lê um cookie nos dois mundos: em Server Component/Route Handler via
@@ -79,7 +80,7 @@ export const DEMO_WORKER_COOKIE = "extra_demo_worker";
  * (company-registration-form.tsx), e as escritas da área da empresa
  * (publicar vaga, marcar presença) devem seguir o mesmo padrão.
  */
-async function readDemoCookie(cookieName: string): Promise<string | null> {
+export async function readDemoCookie(cookieName: string): Promise<string | null> {
   if (typeof window === "undefined") {
     try {
       const { cookies } = await import("next/headers");

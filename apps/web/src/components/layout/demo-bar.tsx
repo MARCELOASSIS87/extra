@@ -1,20 +1,31 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FlaskConical } from "lucide-react";
+import type { SessionRole } from "@/lib/api/session";
 
 const SELECT_CLASSNAME =
   "border-input bg-background focus-visible:ring-ring h-9 rounded-md border px-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2";
 
+const ROLE_LABELS: Record<SessionRole, string> = {
+  anonymous: "Visitante",
+  worker: "Trabalhador",
+  company: "Empresa",
+};
+
 /**
  * Barra "entrar como" — só existe em modo mock (NEXT_PUBLIC_API_MODE=mock).
  * Sem login de verdade ainda (§11), então esta é a única forma de testar as
- * áreas do trabalhador e da empresa com mais de um usuário. Escreve o cookie
- * direto no navegador (sem HttpOnly, de propósito) e recarrega os Server
- * Components com router.refresh() — sem isso a escolha não chegaria nas
- * páginas que já buscaram dado no servidor.
+ * áreas do trabalhador e da empresa com mais de um usuário, e o único lugar
+ * que ainda leva para "Área da empresa" — o menu público não tem mais esse
+ * link. Escreve o cookie direto no navegador (sem HttpOnly, de propósito) e
+ * recarrega os Server Components com router.refresh() — sem isso a escolha
+ * não chegaria nas páginas que já buscaram dado no servidor.
  */
 export function DemoBar({
+  roleCookieName,
+  currentRole,
   workerCookieName,
   workers,
   currentWorkerId,
@@ -22,6 +33,8 @@ export function DemoBar({
   companies,
   currentCompanyId,
 }: {
+  roleCookieName: string;
+  currentRole: SessionRole;
   workerCookieName: string;
   workers: readonly { id: string; fullName: string }[];
   currentWorkerId: string;
@@ -46,6 +59,21 @@ export function DemoBar({
         </span>
 
         <label className="ml-auto flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Ver como:</span>
+          <select
+            value={currentRole}
+            onChange={(event) => change(roleCookieName, event.target.value)}
+            className={SELECT_CLASSNAME}
+          >
+            {(Object.keys(ROLE_LABELS) as SessionRole[]).map((role) => (
+              <option key={role} value={role}>
+                {ROLE_LABELS[role]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">Trabalhador:</span>
           <select
             value={currentWorkerId}
@@ -74,6 +102,10 @@ export function DemoBar({
             ))}
           </select>
         </label>
+
+        <Link href="/empresa" className="text-sm font-medium underline underline-offset-2">
+          Área da empresa
+        </Link>
       </div>
     </div>
   );

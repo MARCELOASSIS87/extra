@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { CircleCheck, MessageCircle } from "lucide-react";
 import type { Application } from "@extra/shared/types/application";
 import type { JobPost } from "@extra/shared/types/job";
@@ -47,10 +48,12 @@ export function JobApplyPanel({
   job,
   initialApplication,
   workerName,
+  isWorker,
 }: {
   job: JobPost;
   initialApplication: Application | null;
   workerName: string;
+  isWorker: boolean;
 }) {
   const [application, setApplication] = useState(initialApplication);
   const [isApplying, setIsApplying] = useState(false);
@@ -138,6 +141,17 @@ export function JobApplyPanel({
       <p className="text-muted-foreground rounded-xl border border-dashed p-6 text-center text-sm">
         Esta vaga já tem candidatos suficientes.
       </p>
+    );
+  }
+
+  if (!isWorker) {
+    return (
+      <Link
+        href={`/cadastro/trabalhador?vaga=${job.slug}`}
+        className={cn(buttonVariants({ size: "lg" }), "h-12 w-full")}
+      >
+        Quero essa vaga
+      </Link>
     );
   }
 

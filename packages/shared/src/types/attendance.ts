@@ -5,13 +5,19 @@ export interface AttendanceSummary {
   // NUNCA existe rating, stars, score ou comment.
 }
 
-export type AttendanceStatus = "present" | "absent" | "disputed";
+// "not_selected" é neutro: não entra em present nem em absent, nunca aparece
+// no perfil público (§16.7).
+export type AttendanceStatus =
+  | "present"
+  | "absent"
+  | "not_selected"
+  | "disputed";
 
-// A empresa só marca presente ou ausente. "disputed" nasce da contestação do
-// trabalhador (§16.4), nunca de quem marca.
+// A empresa marca presente, ausente ou "não chamei" (§16.7). "disputed" nasce
+// da contestação do trabalhador (§16.4), nunca de quem marca.
 export interface AttendanceMarkInput {
   workerId: string;
-  status: Extract<AttendanceStatus, "present" | "absent">;
+  status: Extract<AttendanceStatus, "present" | "absent" | "not_selected">;
 }
 
 export interface AttendanceRecord {
