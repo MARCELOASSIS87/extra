@@ -1,5 +1,5 @@
 import type { ApiResult, Paginated } from "@extra/shared/types/api";
-import type { JobFilters, JobPost, JobPostContact } from "@extra/shared/types/job";
+import type { JobFilters, JobPost } from "@extra/shared/types/job";
 import { jobPostSchema, type JobPostInput } from "@extra/shared/schemas/job";
 import {
   getCurrentCompanyId,
@@ -13,6 +13,9 @@ import { err, ok } from "./result";
 
 const DEFAULT_PAGE_SIZE = 20;
 
+/** A home do trabalhador mostra só uma prévia; a lista completa fica em /vagas. */
+const WORKER_HOME_PAGE_SIZE = 6;
+
 const slugify = (value: string) =>
   value
     .toLowerCase()
@@ -20,6 +23,12 @@ const slugify = (value: string) =>
     .replace(/\p{Diacritic}/gu, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+
+/** Destaque primeiro, depois a publicada há menos tempo. */
+const byHighlightThenRecent = (a: JobPost, b: JobPost) => {
+  if (a.isHighlighted !== b.isHighlighted) return a.isHighlighted ? -1 : 1;
+  return b.publishedAt.localeCompare(a.publishedAt);
+};
 
 /**
  * Listagem pública: só vaga aberta. Destaque primeiro, depois a publicada há
@@ -41,11 +50,7 @@ export async function listJobs(
         neighborhood ? job.neighborhood === neighborhood : true,
       )
       .filter((job) => (date ? job.date === date : true))
-      .sort((a, b) => {
-        if (a.isHighlighted !== b.isHighlighted)
-          return a.isHighlighted ? -1 : 1;
-        return b.publishedAt.localeCompare(a.publishedAt);
-      });
+      .sort(byHighlightThenRecent);
 
     const start = (page - 1) * pageSize;
 
@@ -53,6 +58,39 @@ export async function listJobs(
       items: matches.slice(start, start + pageSize),
       total: matches.length,
       page,
+      pageSize,
+    });
+  });
+}
+
+/**
+ * "Vagas para você" da home do trabalhador: o roteamento do §16.2 aplicado à
+ * listagem — só as funções e a região do perfil dele. Quem ainda não escolheu
+ * função vê todas as abertas da cidade, em vez de uma tela vazia.
+ *
+ * ponytail: região = cidade do perfil (MVP de cidade única). Peso por bairro
+ * entra quando houver mais de uma cidade.
+ */
+export async function listJobsForMe(
+  pageSize = WORKER_HOME_PAGE_SIZE,
+): Promise<ApiResult<Paginated<JobPost>>> {
+  const workerId = await getCurrentWorkerId();
+  return withMock(() => {
+    const worker = store.workers.find((item) => item.id === workerId);
+    if (!worker) return err("worker_not_found", "Cadastro não encontrado.");
+
+    const matches = store.jobPosts
+      .filter((job) => job.status === "open")
+      .filter((job) => job.city === worker.city)
+      .filter(
+        (job) => worker.roles.length === 0 || worker.roles.includes(job.role),
+      )
+      .sort(byHighlightThenRecent);
+
+    return ok({
+      items: matches.slice(0, pageSize),
+      total: matches.length,
+      page: 1,
       pageSize,
     });
   });
@@ -123,34 +161,6 @@ export async function createJob(
       { jobPostId: jobId, contactPhone },
     ];
     return ok(job);
-  });
-}
-
-/**
- * GET /v1/jobs/:id/contact — o telefone nunca sai no payload público (§16.5).
- * Só libera para quem tem candidatura ativa (não retirada) nesta vaga.
- */
-export async function getJobContact(
-  jobId: string,
-): Promise<ApiResult<JobPostContact>> {
-  const workerId = await getCurrentWorkerId();
-  return withMock(() => {
-    const hasActiveApplication = store.applications.some(
-      (item) =>
-        item.jobPostId === jobId &&
-        item.workerId === workerId &&
-        item.status !== "withdrawn",
-    );
-    if (!hasActiveApplication) {
-      return err("forbidden", "Candidate-se para ver o contato.");
-    }
-
-    const contact = store.jobPostContacts.find(
-      (item) => item.jobPostId === jobId,
-    );
-    if (!contact) return err("job_not_found", "Vaga não encontrada.");
-
-    return ok(contact);
   });
 }
 

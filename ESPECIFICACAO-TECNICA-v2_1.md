@@ -156,6 +156,8 @@ Telas primeiro, banco por último — mas com contratos definidos antes, para o 
 
 **Fase 4 — API real.** Fastify cumprindo os contratos. Troca-se `NEXT_PUBLIC_API_MODE=live`. O front não muda.
 
+> **Dívida registrada na Fase 3:** em modo mock todas as rotas renderizam sob demanda (`ƒ`), porque o store vive no `localStorage` do navegador. Ao ligar o modo live, **`/vagas/[slug]` precisa voltar a ser estática ou ISR** — é a página que o Google indexa, e indexação é a única aquisição gratuita do projeto. Conferir no `next build` que ela aparece como `○` ou `ISR`, não como `ƒ`.
+
 **Fase 5 — Banco.** Schema Prisma derivado dos tipos já validados na prática. Migrações rodadas na mão no contêiner.
 
 Regra de ouro: **nenhum componente importa de `src/mocks/` diretamente.** Tudo por `src/lib/api/`. Respeitada essa regra, a Fase 4 é troca de implementação, não reescrita. Vale um `eslint-plugin-import` com `no-restricted-imports` para garantir.
@@ -694,79 +696,57 @@ A fricção é intencional — filtra quem não faria o esforço de acordar às 
 
 **16.4 Marcação de presença.** Após a data, pendência no painel da empresa. Um clique por candidato, entre três opções — não chamei / compareceu / não compareceu (§16.7). Sem texto. O trabalhador é notificado e tem 7 dias para contestar; contestado, sai do perfil público até resolução. Expira em 12 meses.
 
-**16.5 Revelação de contato — o mecanismo central do produto.**
+**16.5 Revelação de contato — só a empresa inicia.**
 
-O telefone **nunca** aparece em página pública. Se aparecesse, o trabalhador
-mandaria mensagem direto e a plataforma não registraria nada — sem candidatura,
-sem dado, sem histórico, sem produto. Também seria convite a raspagem: um robô
-baixaria todas as vagas e remontaria o grupo de WhatsApp concorrente numa tarde.
+O telefone **nunca** aparece em página pública, e **nunca é exibido como texto
+em lugar nenhum da interface** — só existe atrás de um botão que abre o WhatsApp.
+Número escrito na tela é número copiado e colado no grupo, e aí o anti-raspagem
+virou enfeite.
 
-Fluxo do trabalhador:
+**Direção única: a empresa entra em contato com o trabalhador. Nunca o contrário.**
 
-1. Abre a vaga. Vê tudo — função, data, valor, local, exigências. **Não vê o telefone**
+Motivo: uma vaga de seis aceita até dezoito candidaturas. Se todos pudessem chamar,
+o contratante — que é o cliente pagante — receberia dezoito mensagens de
+desconhecidos por anúncio, e cancelaria a assinatura. Além disso, hoje no grupo de
+WhatsApp o número dele fica exposto a milhares de pessoas; aqui não aparece para
+ninguém. Isso é argumento comercial, não só proteção.
+
+**Fluxo do trabalhador:**
+
+1. Abre a vaga. Vê tudo — função, data, valor, local, exigências. **Nunca vê contato**
 2. Toca em **"Quero essa vaga"** → cria a `Application` com `shortCode`
-3. A tela passa a mostrar: **"Candidatura registrada. Você aparece no painel da empresa. Chame no WhatsApp para combinar os detalhes."**
-   - Nunca escrever "a empresa foi notificada": é promessa sobre terceiro que não controlamos
-4. Botão **"Falar no WhatsApp"** abre `wa.me` com mensagem pronta e grava `contactedAt`
+3. A tela mostra: **"Candidatura enviada. Se a empresa escolher você, ela chama no seu WhatsApp."**
+   - nunca escrever "a empresa foi notificada": é promessa sobre terceiro
+4. Não existe botão de contato para o trabalhador. Em nenhum momento
 
-Mensagem pré-preenchida:
+**Fluxo da empresa:**
+
+1. Recebe aviso e vê os candidatos no painel, com perfil e histórico
+2. Toca em **"Falar no WhatsApp"** no candidato escolhido
+3. Abre o `wa.me` com mensagem pronta e grava `contactedAt`
 
 ```
-Oi! Sou João Silva.
-Me candidatei à vaga de Garçom para casamento em Cascatinha,
-sábado 22/08 às 17h.
+Oi João! Aqui é o Buffet Encanto.
+Vi sua candidatura para Garçom para casamento em Cascatinha,
+sábado 22/08 às 17h — R$ 150.
 Código: A7K2
 — via extraqui.com.br
 ```
 
-Três funções nessa mensagem: identifica quem é (a empresa recebe várias),
-o `shortCode` casa a conversa com a candidatura no painel — o que faz a
-marcação de presença funcionar depois — e a última linha coloca a marca dentro
-do WhatsApp de cada contratante da cidade, de graça. É o canal de aquisição mais
-barato do projeto e nasce de uma linha de texto.
+**O clique é o ato de escolher.** `contactedAt` preenchido = a empresa chamou.
+Isso alimenta a marcação de presença (§16.7): quem foi contatado é candidato a
+`present`/`absent`; quem não foi tende a `not_selected`.
 
-Fluxo da empresa: o painel mostra os candidatos com `shortCode`, perfil público
-e botão de WhatsApp. O telefone do trabalhador só aparece para quem se candidatou
-àquela vaga.
+Depois desse primeiro contato o trabalhador passa a ter o número da empresa — e
+tudo bem: é uma conversa um-a-um, depois da escolha, e não uma exposição em massa
+como no grupo.
 
-**Teto de candidaturas:** `maxApplications = vacancies * 3`. Atingido o teto, a
-vaga para de aceitar e exibe "candidatos suficientes". Protege o contratante —
-que é o cliente pagante — de receber trinta mensagens por uma vaga de seis.
+**Teto de candidaturas:** `maxApplications = vacancies * 3`. Atingido o teto, a vaga
+para de aceitar e exibe "candidatos suficientes".
 
-**Métrica que isso destrava:** a razão entre `appliedAt` e `contactedAt`. Muitas
-candidaturas com poucos contatos significa fluxo quebrado, e você descobre pelo
-dado antes de alguém reclamar.
-
-**16.7 "Não foi escolhido" — o desfecho neutro.**
-
-Uma vaga de uma pessoa recebe até três candidatos; uma de seis recebe até dezoito.
-A empresa chama poucos. Os demais **não faltaram — não foram chamados**, e tratar
-os dois casos como a mesma coisa produziria falta falsa em quem não fez nada de
-errado.
-
-Por isso a marcação tem três saídas, não duas:
-
-| Botão na tela | Status | Efeito no histórico |
-|---|---|---|
-| **Não chamei este** | `not_selected` | **nenhum.** Neutro, invisível ao público |
-| **Compareceu** | `present` | +1 presença |
-| **Não compareceu** | `absent` | +1 falta |
-
-Regras:
-
-- `not_selected` **nunca** aparece no perfil público, nem como contagem, nem como
-  "candidatou-se a 12 vagas". Isso leria como doze rejeições
-- o dado fica guardado para análise interna: se alguém se candidata muito e nunca
-  é chamado, é sinal de que o perfil precisa de ajuda — não de punição
-- **passados 7 dias da data da vaga sem marcação, tudo que estiver `pending` vira
-  `not_selected` automaticamente.** Tira trabalho do cliente pagante e evita que o
-  silêncio da empresa vire prejuízo para o trabalhador
-- só `absent` é falta. Nunca inferir falta de ausência de marcação
-
-**Aviso ao candidato:** quando a vaga fecha ou expira, quem não foi chamado recebe
-**"A vaga foi preenchida"** — fato sobre a vaga, nunca juízo sobre a pessoa. Jamais
-escrever "você não foi escolhido". Silêncio eterno é pior que aviso: sem retorno, a
-pessoa para de se candidatar e você perde a oferta.
+**Métrica que isso destrava:** candidaturas por vaga versus `contactedAt`
+preenchidos. Muitas candidaturas e poucos contatos significa que a empresa não está
+voltando ao painel — e aí o problema é de notificação, não de oferta.
 
 **16.6 Exibição do histórico de presença.**
 

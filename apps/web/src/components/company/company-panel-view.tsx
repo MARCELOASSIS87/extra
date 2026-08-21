@@ -4,7 +4,10 @@ import type { ApiResult } from "@extra/shared/types/api";
 import type { Application } from "@extra/shared/types/application";
 import type { Company } from "@extra/shared/types/company";
 import type { JobPost } from "@extra/shared/types/job";
-import type { WorkerPublicProfile } from "@extra/shared/types/worker";
+import type {
+  WorkerApplicantProfile,
+  WorkerPublicProfile,
+} from "@extra/shared/types/worker";
 import { AttendancePendingList } from "@/components/company/attendance-pending-list";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,7 +20,14 @@ export interface CompanyPanelData {
   applicants: ApiResult<
     { application: Application; job: JobPost; worker: WorkerPublicProfile }[]
   >;
-  pending: ApiResult<{ job: JobPost; worker: WorkerPublicProfile }[]>;
+  pending: ApiResult<
+    {
+      job: JobPost;
+      worker: WorkerApplicantProfile;
+      shortCode: string;
+      workerPhone: string;
+    }[]
+  >;
 }
 
 /** `data: null` é "ainda carregando" — só acontece em modo mock. */

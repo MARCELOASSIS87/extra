@@ -4,14 +4,14 @@ import type {
   AttendanceRecord,
 } from "@extra/shared/types/attendance";
 import type { JobPost } from "@extra/shared/types/job";
-import type { WorkerPublicProfile } from "@extra/shared/types/worker";
+import type { WorkerApplicantProfile } from "@extra/shared/types/worker";
 import {
   getCurrentCompanyId,
   getCurrentWorkerId,
   nowIso,
   randomId,
   store,
-  toPublicProfile,
+  toApplicantProfile,
   withMock,
 } from "./mock";
 import { err, ok } from "./result";
@@ -78,11 +78,20 @@ export async function markAttendance(
 }
 
 /**
- * POST /v1/jobs/:id/attendance — vagas já realizadas com candidato ainda sem
- * presença marcada (§16.4): a pendência que o painel da empresa mostra.
+ * Vagas já realizadas com candidato ainda sem presença marcada (§16.4): a
+ * pendência que o painel da empresa mostra. Vem com nome, código e telefone
+ * porque a empresa marca dias depois do evento e precisa lembrar quem foi e
+ * em qual vaga — sem isso a marcação vira chute.
  */
 export async function listAttendancePending(): Promise<
-  ApiResult<{ job: JobPost; worker: WorkerPublicProfile }[]>
+  ApiResult<
+    {
+      job: JobPost;
+      worker: WorkerApplicantProfile;
+      shortCode: string;
+      workerPhone: string;
+    }[]
+  >
 > {
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
@@ -101,7 +110,14 @@ export async function listAttendancePending(): Promise<
         if (alreadyMarked) return [];
         const worker = store.workers.find((w) => w.id === item.workerId);
         if (!worker) return [];
-        return [{ job, worker: toPublicProfile(worker) }];
+        return [
+          {
+            job,
+            worker: toApplicantProfile(worker),
+            shortCode: item.shortCode,
+            workerPhone: worker.phone,
+          },
+        ];
       })
       .sort((a, b) => a.job.date.localeCompare(b.job.date));
 

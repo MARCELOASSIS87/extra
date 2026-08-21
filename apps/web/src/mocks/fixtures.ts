@@ -2761,7 +2761,7 @@ export const jobPosts: JobPost[] = [
 ];
 
 // Nunca faz parte do payload público — só entra no store separado, exposto
-// via getJobContact() depois de candidatura ativa (§16.5).
+// para ninguém: na §16.5 quem inicia o contato é sempre a empresa.
 export const jobPostContacts: JobPostContact[] = [
   { jobPostId: "d499c7b2-5217-4eba-abed-df4abba3aaa1", contactPhone: "+5535991258324" },
   { jobPostId: "f6515bd6-ab62-44d3-ae8f-0a7c5a5c69a3", contactPhone: "+5535991266243" },

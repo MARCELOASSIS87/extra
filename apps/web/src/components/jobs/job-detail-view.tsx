@@ -15,12 +15,10 @@ import { formatJobDate, formatMoney, formatTimeRange } from "@/lib/format";
 export function JobDetailView({
   job,
   myApplication,
-  workerName,
   isWorker,
 }: {
   job: JobPost;
   myApplication: Application | null;
-  workerName: string;
   isWorker: boolean;
 }) {
   const RoleIcon = JOB_ROLE_ICONS[job.role];
@@ -96,7 +94,6 @@ export function JobDetailView({
         <JobApplyPanel
           job={job}
           initialApplication={myApplication}
-          workerName={workerName}
           isWorker={isWorker}
         />
       </div>

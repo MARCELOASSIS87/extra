@@ -182,15 +182,16 @@ export function JobPostForm() {
           <input
             id="payAmount"
             type="number"
-            inputMode="decimal"
-            step="0.01"
-            min="0"
+            inputMode="numeric"
+            step="1"
+            min="1"
             aria-invalid={!!errors.payAmount || undefined}
             className={fieldClass}
             {...register("payAmount", { valueAsNumber: true })}
           />
           <p className="text-muted-foreground text-xs">
-            Informativo. O acerto é direto entre vocês.
+            Reais inteiros, sem centavos. Informativo: o acerto é direto entre
+            vocês.
           </p>
           <FieldError message={errors.payAmount?.message} />
         </div>
@@ -287,8 +288,8 @@ export function JobPostForm() {
           {...register("contactPhone")}
         />
         <p className="text-muted-foreground text-xs">
-          Formato internacional, com DDD. É por aqui que o trabalhador chama
-          no WhatsApp.
+          Formato internacional, com DDD. Fica no seu cadastro da vaga e não
+          aparece para ninguém: quem chama no WhatsApp é você, pelo painel.
         </p>
         <FieldError message={errors.contactPhone?.message} />
       </div>

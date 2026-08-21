@@ -2,52 +2,30 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CircleCheck, MessageCircle } from "lucide-react";
+import { CircleCheck } from "lucide-react";
 import type { Application } from "@extra/shared/types/application";
 import type { JobPost } from "@extra/shared/types/job";
-import { applyToJob, markApplicationContacted } from "@/lib/api/applications";
-import { getJobContact } from "@/lib/api/jobs";
+import { applyToJob } from "@/lib/api/applications";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatJobWeekdayAndDate } from "@/lib/format";
 
 /**
- * Mensagem do §16.5: identifica quem é, casa a conversa com o `shortCode` e
- * carimba a marca no WhatsApp de quem contrata — três funções numa linha.
- */
-function buildWhatsappMessage(
-  job: JobPost,
-  workerName: string,
-  shortCode: string,
-) {
-  const { weekday, shortDate } = formatJobWeekdayAndDate(job.date);
-
-  return [
-    `Oi! Sou ${workerName}.`,
-    `Me candidatei à vaga de ${job.title}, ${weekday} ${shortDate} às ${job.startTime}.`,
-    `Código: ${shortCode}`,
-    `— via extraqui.com.br`,
-  ].join("\n");
-}
-
-/**
- * O telefone nunca chega ao servidor desta página: só é buscado no clique de
- * "Falar no WhatsApp", depois de candidatura ativa (§16.5).
+ * Direção única do §16.5: só a empresa inicia o contato. O trabalhador nunca
+ * recebe o telefone da vaga e não tem botão de contato em momento nenhum —
+ * se dezoito candidatos pudessem chamar, quem paga a assinatura receberia
+ * dezoito mensagens de desconhecidos por anúncio e cancelaria.
  */
 export function JobApplyPanel({
   job,
   initialApplication,
-  workerName,
   isWorker,
 }: {
   job: JobPost;
   initialApplication: Application | null;
-  workerName: string;
   isWorker: boolean;
 }) {
   const [application, setApplication] = useState(initialApplication);
   const [isApplying, setIsApplying] = useState(false);
-  const [isOpeningWhatsapp, setIsOpeningWhatsapp] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const apply = async () => {
@@ -62,33 +40,6 @@ export function JobApplyPanel({
     setApplication(result.data);
   };
 
-  const openWhatsapp = async () => {
-    if (!application) return;
-    setIsOpeningWhatsapp(true);
-    setError(null);
-
-    const contactResult = await getJobContact(job.id);
-    if (!contactResult.ok) {
-      setIsOpeningWhatsapp(false);
-      setError(contactResult.error.message);
-      return;
-    }
-
-    void markApplicationContacted(application.id);
-
-    const phone = contactResult.data.contactPhone.replace(/^\+/, "");
-    const message = buildWhatsappMessage(
-      job,
-      workerName,
-      application.shortCode,
-    );
-    window.open(
-      `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
-      "_blank",
-    );
-    setIsOpeningWhatsapp(false);
-  };
-
   if (application && application.status !== "withdrawn") {
     return (
       <div className="rounded-xl border border-dashed p-6 text-center">
@@ -96,24 +47,14 @@ export function JobApplyPanel({
           aria-hidden="true"
           className="text-primary mx-auto size-8"
         />
+        {/* Nunca "a empresa foi notificada": é promessa sobre terceiro. */}
         <p className="mt-3 font-medium">
-          Candidatura registrada. Você aparece no painel da empresa. Chame no
-          WhatsApp para combinar os detalhes.
+          Candidatura enviada. Se a empresa escolher você, ela chama no seu
+          WhatsApp.
         </p>
-        <button
-          type="button"
-          disabled={isOpeningWhatsapp}
-          onClick={openWhatsapp}
-          className={cn(buttonVariants({ size: "lg" }), "mt-4 h-12 w-full")}
-        >
-          <MessageCircle aria-hidden="true" className="size-4" />
-          Falar no WhatsApp
-        </button>
-        {error && (
-          <p role="alert" className="text-destructive mt-3 text-xs">
-            {error}
-          </p>
-        )}
+        <p className="text-muted-foreground mt-2 text-sm">
+          Ela cita o código {application.shortCode} na mensagem.
+        </p>
       </div>
     );
   }

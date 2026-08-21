@@ -1,6 +1,10 @@
 import type { ApiResult } from "@extra/shared/types/api";
 import type { AttendanceSummary } from "@extra/shared/types/attendance";
-import type { Worker, WorkerPublicProfile } from "@extra/shared/types/worker";
+import type {
+  Worker,
+  WorkerApplicantProfile,
+  WorkerPublicProfile,
+} from "@extra/shared/types/worker";
 import { companies, workers } from "@/mocks/fixtures";
 import { resetStore, store } from "@/mocks/store";
 import { err } from "./result";
@@ -203,5 +207,21 @@ export function toPublicProfile(worker: Worker): WorkerPublicProfile {
     hasCompleteProfile: worker.status === "complete",
     attendance: computeAttendanceSummary(worker.id),
     memberSince: worker.createdAt,
+  };
+}
+
+/**
+ * Projeção que a empresa daquela vaga enxerga do candidato dela (§16.5):
+ * a pública mais nome completo, disponibilidade e referências. Continua sem
+ * CPF e sem data de nascimento — quem faz esse corte no mundo real é o
+ * servidor, e o mock imita para nenhuma tela se acostumar a receber dado
+ * sensível.
+ */
+export function toApplicantProfile(worker: Worker): WorkerApplicantProfile {
+  return {
+    ...toPublicProfile(worker),
+    fullName: worker.fullName,
+    availability: worker.availability,
+    references: worker.references,
   };
 }

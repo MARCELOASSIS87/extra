@@ -1,7 +1,11 @@
 import type { ApiResult } from "@extra/shared/types/api";
 import type { Application } from "@extra/shared/types/application";
 import type { JobPost } from "@extra/shared/types/job";
-import type { WorkerPublicProfile } from "@extra/shared/types/worker";
+import type { AttendanceStatus } from "@extra/shared/types/attendance";
+import type {
+  WorkerApplicantProfile,
+  WorkerPublicProfile,
+} from "@extra/shared/types/worker";
 import {
   getCurrentCompanyId,
   getCurrentWorkerId,
@@ -9,6 +13,7 @@ import {
   randomId,
   randomShortCode,
   store,
+  toApplicantProfile,
   toPublicProfile,
   withMock,
 } from "./mock";
@@ -59,19 +64,25 @@ export async function applyToJob(
 }
 
 /**
- * POST /v1/applications/:id/contacted — grava quando o trabalhador toca em
- * "Falar no WhatsApp" (§16.5). É o dado que mede candidatura vs. contato real.
+ * POST /v1/applications/:id/contacted [empresa] — grava quando a empresa toca
+ * em "Falar no WhatsApp" (§16.5). O clique é o ato de escolher: só a empresa
+ * inicia o contato, então só ela chega aqui. É o dado que mede candidatura
+ * versus contato real, e o que alimenta a marcação de presença (§16.7).
  */
 export async function markApplicationContacted(
   id: string,
 ): Promise<ApiResult<Application>> {
-  const workerId = await getCurrentWorkerId();
+  const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const application = store.applications.find((item) => item.id === id);
     if (!application)
       return err("application_not_found", "Candidatura não encontrada.");
-    if (application.workerId !== workerId) {
-      return err("forbidden", "Esta candidatura é de outra pessoa.");
+
+    const job = store.jobPosts.find(
+      (item) => item.id === application.jobPostId,
+    );
+    if (!job || job.companyId !== companyId) {
+      return err("forbidden", "Esta candidatura é de outra empresa.");
     }
 
     const updated: Application = { ...application, contactedAt: nowIso() };
@@ -90,6 +101,30 @@ export async function listMyApplications(): Promise<ApiResult<Application[]>> {
       store.applications
         .filter((item) => item.workerId === workerId)
         .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt)),
+    ),
+  );
+}
+
+/**
+ * GET /v1/me/applications com a vaga junto: a home do trabalhador precisa da
+ * data e do título para separar a confirmação de véspera (§16.3) das outras
+ * candidaturas. Ordenado pela vaga mais próxima primeiro.
+ */
+export async function listMyApplicationsWithJob(): Promise<
+  ApiResult<{ application: Application; job: JobPost }[]>
+> {
+  const workerId = await getCurrentWorkerId();
+  return withMock(() =>
+    ok(
+      store.applications
+        .filter((item) => item.workerId === workerId)
+        .flatMap((application) => {
+          const job = store.jobPosts.find(
+            (item) => item.id === application.jobPostId,
+          );
+          return job ? [{ application, job }] : [];
+        })
+        .sort((a, b) => a.job.date.localeCompare(b.job.date)),
     ),
   );
 }
@@ -178,18 +213,25 @@ export async function listJobApplicants(
 }
 
 /**
- * Tela "candidatos da vaga": shortCode, perfil público e o telefone do
- * trabalhador — só aparece aqui, escopado à empresa dona da vaga em que ele
- * se candidatou (§16.5, revelação espelhada da do lado do trabalhador).
+ * Tela "candidatos da vaga": shortCode, perfil de candidato e o telefone do
+ * trabalhador — escopado à empresa dona da vaga (§16.5). O telefone nunca é
+ * exibido como texto: só alimenta o botão que abre o WhatsApp.
+ *
+ * `presentWithCompany` conta as presenças que ESTA empresa já registrou para
+ * ele ("você já contratou fulano N vezes"); `attendanceStatus` é o que ela já
+ * marcou nesta vaga, para a tela não oferecer marcar duas vezes.
  */
 export async function listJobCandidates(jobId: string): Promise<
-  ApiResult<
-    {
+  ApiResult<{
+    job: JobPost;
+    candidates: {
       application: Application;
-      worker: WorkerPublicProfile;
+      worker: WorkerApplicantProfile;
       workerPhone: string;
-    }[]
-  >
+      presentWithCompany: number;
+      attendanceStatus: AttendanceStatus | null;
+    }[];
+  }>
 > {
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
@@ -211,8 +253,19 @@ export async function listJobCandidates(jobId: string): Promise<
         return [
           {
             application,
-            worker: toPublicProfile(worker),
+            worker: toApplicantProfile(worker),
             workerPhone: worker.phone,
+            presentWithCompany: store.attendanceRecords.filter(
+              (record) =>
+                record.workerId === worker.id &&
+                record.companyId === companyId &&
+                record.status === "present",
+            ).length,
+            attendanceStatus:
+              store.attendanceRecords.find(
+                (record) =>
+                  record.jobPostId === jobId && record.workerId === worker.id,
+              )?.status ?? null,
           },
         ];
       })
@@ -220,7 +273,9 @@ export async function listJobCandidates(jobId: string): Promise<
         a.application.appliedAt.localeCompare(b.application.appliedAt),
       );
 
-    return ok(candidates);
+    // A vaga vem junto: as duas telas da empresa precisam dela (título, data,
+    // valor da mensagem do §16.5) e ela já foi validada aqui.
+    return ok({ job, candidates });
   });
 }
 

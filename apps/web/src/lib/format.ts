@@ -20,11 +20,13 @@ const shortDateFormatter = new Intl.DateTimeFormat("pt-BR", {
   timeZone: TIME_ZONE,
 });
 
+// Sem centavos nos dois sentidos: `payAmount` é real inteiro (schema), e o
+// anúncio nunca pode exibir número diferente do que a empresa digitou.
 const moneyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
   minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
+  maximumFractionDigits: 0,
 });
 
 /**

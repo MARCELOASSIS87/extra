@@ -34,7 +34,8 @@ export interface Availability {
   period: "morning" | "afternoon" | "night";
 }
 
-// O que a empresa enxerga. Sem CPF, sem data de nascimento.
+// O que a empresa enxerga na lista pública de candidatos. Sem CPF, sem data
+// de nascimento.
 export interface WorkerPublicProfile {
   id: string;
   firstName: string;
@@ -46,4 +47,16 @@ export interface WorkerPublicProfile {
   hasCompleteProfile: boolean;
   attendance: AttendanceSummary;
   memberSince: string;
+}
+
+/**
+ * O que a empresa daquela vaga enxerga do candidato dela (§16.5): o perfil
+ * público mais nome completo, disponibilidade e referências. Servido só para
+ * a empresa dona da vaga, e só enquanto houver candidatura ativa. Nunca
+ * carrega cpf nem birthDate — é o que separa este tipo do `Worker`.
+ */
+export interface WorkerApplicantProfile extends WorkerPublicProfile {
+  fullName: string;
+  availability: Availability[];
+  references: WorkerReference[];
 }

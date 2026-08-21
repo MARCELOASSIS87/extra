@@ -6,16 +6,7 @@ import { DemoBar } from "@/components/layout/demo-bar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
-import {
-  DEMO_COMPANY_COOKIE,
-  DEMO_ROLE_COOKIE,
-  DEMO_WORKER_COOKIE,
-  getCurrentCompanyId,
-  getCurrentWorkerId,
-  getDemoCompanyOptions,
-  getDemoWorkerOptions,
-  isMockMode,
-} from "@/lib/api/mock";
+import { isMockMode } from "@/lib/api/mock";
 import { getSessionRole } from "@/lib/api/session";
 import { SITE_URL } from "@/lib/site";
 
@@ -79,18 +70,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           Pular para o conteúdo
         </a>
 
-        {isMockMode && (
-          <DemoBar
-            roleCookieName={DEMO_ROLE_COOKIE}
-            currentRole={role}
-            workerCookieName={DEMO_WORKER_COOKIE}
-            workers={getDemoWorkerOptions()}
-            currentWorkerId={await getCurrentWorkerId()}
-            companyCookieName={DEMO_COMPANY_COOKIE}
-            companies={getDemoCompanyOptions()}
-            currentCompanyId={await getCurrentCompanyId()}
-          />
-        )}
+        {isMockMode && <DemoBar currentRole={role} />}
 
         <SiteHeader role={role} />
 

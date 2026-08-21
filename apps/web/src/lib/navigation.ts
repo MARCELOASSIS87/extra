@@ -35,8 +35,8 @@ export type NavItem = {
 };
 
 /**
- * Mesma lista para o menu do topo (desktop) e a barra inferior (celular) —
- * "Área da empresa" nunca entra aqui: só existe na barra de demonstração.
+ * Mesma lista para o menu do topo (desktop) e a barra inferior (celular) — a
+ * área da empresa se alcança pelo papel "Empresa", não por um link solto.
  */
 export function navItems(role: SessionRole): readonly NavItem[] {
   switch (role) {

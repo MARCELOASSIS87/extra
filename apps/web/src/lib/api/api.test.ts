@@ -5,6 +5,8 @@ import {
   applyToJob,
   confirmApplication,
   listJobApplicants,
+  listJobCandidates,
+  markApplicationContacted,
   listMyApplications,
   withdrawApplication,
 } from "./applications";
@@ -99,6 +101,11 @@ async function main() {
     await call(() => createJob({ ...validJob, payAmount: -5 })),
     "validation_error",
   );
+  // Valor do bico é real inteiro: centavo nunca entra (§ ajuste de valor).
+  expectError(
+    await call(() => createJob({ ...validJob, payAmount: 150.5 })),
+    "validation_error",
+  );
 
   const created = unwrap(await call(() => createJob(validJob)));
   assert.equal(created.status, "open");
@@ -152,6 +159,33 @@ async function main() {
       "WorkerPublicProfile não carrega telefone",
     );
   }
+
+  // --- §16.5: quem inicia o contato é a empresa ------------------------------
+  const candidatesResult = unwrap(
+    await call(() => listJobCandidates(created.id)),
+  );
+  const candidate = candidatesResult.candidates.find(
+    (item) => item.worker.id === currentWorkerId,
+  );
+  assert.ok(candidate, "candidato aparece para a empresa dona da vaga");
+  assert.ok(
+    candidate.worker.fullName.length > 0,
+    "WorkerApplicantProfile traz o nome completo",
+  );
+  assert.ok(
+    !("cpf" in candidate.worker) && !("birthDate" in candidate.worker),
+    "WorkerApplicantProfile não carrega CPF nem data de nascimento",
+  );
+  assert.equal(candidate.application.contactedAt, null);
+
+  const contacted = unwrap(
+    await call(() => markApplicationContacted(candidate.application.id)),
+  );
+  assert.notEqual(
+    contacted.contactedAt,
+    null,
+    "o clique da empresa em Falar no WhatsApp grava contactedAt",
+  );
 
   const withdrawn = unwrap(
     await call(() => withdrawApplication(application.id)),

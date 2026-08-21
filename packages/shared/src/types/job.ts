@@ -33,7 +33,7 @@ export interface JobPost {
   date: string;
   startTime: string;
   endTime: string;
-  payAmount: number; // INFORMATIVO. Não processamos este valor.
+  payAmount: number; // real inteiro, sem centavos. INFORMATIVO: não processamos.
   payNote: string | null;
   address: string;
   neighborhood: string;

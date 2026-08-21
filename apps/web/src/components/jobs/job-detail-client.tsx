@@ -6,7 +6,6 @@ import type { Application } from "@extra/shared/types/application";
 import type { JobPost } from "@extra/shared/types/job";
 import { getJobBySlug } from "@/lib/api/jobs";
 import { listMyApplications } from "@/lib/api/applications";
-import { getMyWorkerProfile } from "@/lib/api/workers";
 import { getSessionRole } from "@/lib/api/session";
 import {
   JobDetailSkeleton,
@@ -16,7 +15,6 @@ import {
 interface LoadedJob {
   job: JobPost;
   myApplication: Application | null;
-  workerName: string;
   isWorker: boolean;
 }
 
@@ -32,14 +30,13 @@ export function JobDetailClient({ slug }: { slug: string }) {
   useEffect(() => {
     let active = true;
 
-    // Em paralelo: se a pessoa já se candidatou, o nome dela e o papel da
-    // sessão não dependem um do outro.
+    // Em paralelo: a vaga, a candidatura da pessoa e o papel da sessão não
+    // dependem um do outro.
     Promise.all([
       getJobBySlug(slug),
       listMyApplications(),
-      getMyWorkerProfile(),
       getSessionRole(),
-    ]).then(([jobResult, applicationsResult, workerResult, role]) => {
+    ]).then(([jobResult, applicationsResult, role]) => {
       if (!active) return;
 
       if (!jobResult.ok || !jobResult.data) {
@@ -55,8 +52,6 @@ export function JobDetailClient({ slug }: { slug: string }) {
               (item) => item.jobPostId === job.id && item.status !== "withdrawn",
             ) ?? null)
           : null,
-        workerName:
-          workerResult.ok && workerResult.data ? workerResult.data.fullName : "",
         isWorker: role === "worker",
       });
     });
@@ -75,7 +70,6 @@ export function JobDetailClient({ slug }: { slug: string }) {
     <JobDetailView
       job={loaded.job}
       myApplication={loaded.myApplication}
-      workerName={loaded.workerName}
       isWorker={loaded.isWorker}
     />
   );

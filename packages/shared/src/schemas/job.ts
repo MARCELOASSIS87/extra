@@ -62,7 +62,12 @@ export const jobPostSchema = z.object({
   date: z.iso.date("Data inválida"),
   startTime: timeSchema,
   endTime: timeSchema,
-  payAmount: z.number().positive("Informe um valor maior que zero"),
+  // Real inteiro: o valor combinado de um bico é redondo, e centavo na tela
+  // só cria divergência entre o que a empresa digitou e o que o anúncio diz.
+  payAmount: z
+    .number()
+    .int("Informe o valor em reais inteiros, sem centavos")
+    .positive("Informe um valor maior que zero"),
   payNote: z.string().trim().min(1).nullable(),
   address: z.string().trim().min(1, "Informe o endereço"),
   neighborhood: z.string().trim().min(1, "Informe o bairro"),

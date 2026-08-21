@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { getJobBySlug } from "@/lib/api/jobs";
 import { listMyApplications } from "@/lib/api/applications";
-import { getMyWorkerProfile } from "@/lib/api/workers";
 import { getSessionRole } from "@/lib/api/session";
 import { isMockMode } from "@/lib/api/mock";
 import { JobDetailClient } from "@/components/jobs/job-detail-client";
@@ -55,11 +54,10 @@ export default async function JobDetailPage({
   if (!result.ok || !result.data) notFound();
   const job = result.data;
 
-  // Em paralelo: se a pessoa já se candidatou, o nome dela e o papel da
-  // sessão não dependem um do outro.
-  const [applicationsResult, workerResult, role] = await Promise.all([
+  // Em paralelo: a candidatura da pessoa e o papel da sessão não dependem um
+  // do outro.
+  const [applicationsResult, role] = await Promise.all([
     listMyApplications(),
-    getMyWorkerProfile(),
     getSessionRole(),
   ]);
 
@@ -73,9 +71,6 @@ export default async function JobDetailPage({
     <JobDetailView
       job={job}
       myApplication={myApplication}
-      workerName={
-        workerResult.ok && workerResult.data ? workerResult.data.fullName : ""
-      }
       isWorker={role === "worker"}
     />
   );
