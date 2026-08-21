@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { DEMO_ROLE_COOKIE, isMockMode, readDemoCookie } from "./mock";
+import { DEMO_ROLE_COOKIE, isMockMode, readCookie } from "./mock";
 
 export const SESSION_COOKIE = "extra_session";
 
@@ -14,6 +13,10 @@ export type SessionRole = "anonymous" | "worker" | "company";
  * rede. Dar 300–800ms de latência e 5% de falha aqui faria o menu inteiro
  * piscar ou sumir a cada navegação.
  *
+ * Passa por `readCookie` em vez de importar next/headers direto: as telas de
+ * dado mutável chamam isto do navegador em modo mock, e um import estático
+ * de next/headers derruba o módulo inteiro no bundle do cliente.
+ *
  * ponytail: sem verificação por WhatsApp ainda (§11), então fora do modo mock
  * não há como distinguir trabalhador de empresa — qualquer sessão real vira
  * "worker" (a única sessão real hoje é a de trabalhador). Em modo mock o
@@ -21,10 +24,9 @@ export type SessionRole = "anonymous" | "worker" | "company";
  */
 export async function getSessionRole(): Promise<SessionRole> {
   if (isMockMode) {
-    const chosen = await readDemoCookie(DEMO_ROLE_COOKIE);
+    const chosen = await readCookie(DEMO_ROLE_COOKIE);
     return chosen === "worker" || chosen === "company" ? chosen : "anonymous";
   }
 
-  const store = await cookies();
-  return store.has(SESSION_COOKIE) ? "worker" : "anonymous";
+  return (await readCookie(SESSION_COOKIE)) ? "worker" : "anonymous";
 }

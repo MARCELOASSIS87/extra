@@ -3,6 +3,9 @@ import type { JobFiltersInput } from "@extra/shared/schemas/job";
 
 export const JOBS_PAGE_SIZE = 10;
 
+/** A home mostra só uma prévia; a listagem completa fica em /vagas. */
+export const HOME_PAGE_SIZE = 12;
+
 /**
  * A query string é pública e indexável, então os nomes ficam em português.
  * A tradução para os campos do contrato mora só aqui.

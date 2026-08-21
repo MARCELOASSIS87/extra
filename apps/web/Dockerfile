@@ -12,6 +12,8 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 WORKDIR /repo
 COPY --from=deps /repo/node_modules ./node_modules
+COPY --from=deps /repo/apps/web/node_modules ./apps/web/node_modules
+COPY --from=deps /repo/packages/shared/node_modules ./packages/shared/node_modules
 COPY . .
 RUN pnpm --filter web build
 

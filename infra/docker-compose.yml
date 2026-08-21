@@ -23,6 +23,16 @@ services:
       - "traefik.http.middlewares.extra-web-force-https.redirectscheme.scheme=https"
       - "traefik.http.middlewares.extra-web-force-https.redirectscheme.permanent=true"
       - "traefik.http.routers.extra-web.middlewares=extra-web-force-https"
+      # extraki.com.br é só um domínio espelho: redireciona pro canônico, não serve conteúdo duplicado
+      - "traefik.http.routers.extra-web-alias.entrypoints=web,websecure"
+      - "traefik.http.routers.extra-web-alias.rule=Host(`extraki.com.br`)"
+      - "traefik.http.routers.extra-web-alias.tls=true"
+      - "traefik.http.routers.extra-web-alias.tls.certresolver=mytlschallenge"
+      - "traefik.http.routers.extra-web-alias.service=extra-web"
+      - "traefik.http.middlewares.extra-web-alias-redirect.redirectregex.regex=^https?://extraki\\.com\\.br/(.*)"
+      - "traefik.http.middlewares.extra-web-alias-redirect.redirectregex.replacement=https://extraqui.com.br/$${1}"
+      - "traefik.http.middlewares.extra-web-alias-redirect.redirectregex.permanent=true"
+      - "traefik.http.routers.extra-web-alias.middlewares=extra-web-alias-redirect"
 
 networks:
   root_default:

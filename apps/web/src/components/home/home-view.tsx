@@ -1,0 +1,133 @@
+import Link from "next/link";
+import { RefreshCw, SearchX, WifiOff } from "lucide-react";
+import type { ApiResult, Paginated } from "@extra/shared/types/api";
+import type { JobPost, JobRole } from "@extra/shared/types/job";
+import { CITY } from "@extra/shared/constants/city";
+import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
+import { JobCard } from "@/components/jobs/job-card";
+import { JobListSkeleton } from "@/components/jobs/job-list-skeleton";
+import { RoleFilterSheet } from "@/components/filters/role-filter-sheet";
+import { HomeHero } from "@/components/home/hero";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+/**
+ * A home inteira, sem saber de onde o dado veio: recebe o mesmo
+ * `ApiResult` que `listJobs()` devolve, seja de um Server Component (modo
+ * live) ou de um useEffect (modo mock, onde o estado mora no localStorage).
+ * `result: null` é "ainda carregando" — só acontece no segundo caso.
+ */
+export function HomeView({
+  result,
+  role,
+}: {
+  result: ApiResult<Paginated<JobPost>> | null;
+  role: JobRole | null;
+}) {
+  return (
+    <>
+      <HomeHero cityLabel={`${CITY} — MG`} />
+
+      <div className="mx-auto w-full max-w-3xl px-4 py-10">
+        <section>
+          <h2 className="text-xl font-bold tracking-tight">Vagas abertas</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            As publicadas mais recentemente.
+          </p>
+
+          <div className="mt-4">
+            <RoleFilterSheet value={role} />
+          </div>
+
+          <div className="mt-6">
+            {result === null ? (
+              <JobListSkeleton />
+            ) : !result.ok ? (
+              <ErrorState />
+            ) : result.data.items.length === 0 ? (
+              <EmptyState role={role} />
+            ) : (
+              <>
+                <ul className="grid gap-3">
+                  {result.data.items.map((job) => (
+                    <JobCard key={job.id} job={job} />
+                  ))}
+                </ul>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Link
+                    href={role ? `/vagas?funcao=${role}` : "/vagas"}
+                    className={cn(
+                      buttonVariants({ variant: "outline" }),
+                      "h-11",
+                    )}
+                  >
+                    Ver todas as vagas
+                  </Link>
+                  {result.data.total > result.data.items.length && (
+                    <p className="text-muted-foreground text-sm">
+                      Mostrando {result.data.items.length} de{" "}
+                      {result.data.total} vagas abertas.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      </div>
+    </>
+  );
+}
+
+function ErrorState() {
+  return (
+    <div className="rounded-xl border border-dashed p-6 text-center">
+      <WifiOff
+        aria-hidden="true"
+        className="text-muted-foreground/60 mx-auto size-8"
+      />
+      <p className="mt-3 font-medium">Não foi possível carregar as vagas.</p>
+      <p className="text-muted-foreground mt-1 text-sm">
+        Pode ter sido a conexão. Tente de novo em alguns segundos.
+      </p>
+      {/* Link para a própria home: recarrega e refaz a busca sem exigir JS. */}
+      <Link
+        href="/"
+        className={cn(buttonVariants({ variant: "outline" }), "mt-4")}
+      >
+        <RefreshCw aria-hidden="true" className="size-4" />
+        Tentar de novo
+      </Link>
+    </div>
+  );
+}
+
+function EmptyState({ role }: { role: JobRole | null }) {
+  return (
+    <div className="rounded-xl border border-dashed p-6 text-center">
+      <SearchX
+        aria-hidden="true"
+        className="text-muted-foreground/50 mx-auto size-12"
+      />
+      <p className="mt-3 font-medium">
+        {role
+          ? `Nenhuma vaga de ${JOB_ROLE_LABELS[role]} aberta agora.`
+          : "Nenhuma vaga aberta agora."}
+      </p>
+      <p className="text-muted-foreground mt-1 text-sm">
+        Vagas novas aparecem todo dia. Cadastre-se para ser avisado quando
+        surgir uma da sua função.
+      </p>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        {role && (
+          <Link href="/" className={buttonVariants({ variant: "outline" })}>
+            Ver todas as vagas
+          </Link>
+        )}
+        <Link href="/cadastro/trabalhador" className={buttonVariants()}>
+          Quero trabalhar
+        </Link>
+      </div>
+    </div>
+  );
+}

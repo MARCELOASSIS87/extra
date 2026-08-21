@@ -1,15 +1,14 @@
 import type { ApiResult } from "@extra/shared/types/api";
 import type { AttendanceSummary } from "@extra/shared/types/attendance";
 import type { Worker, WorkerPublicProfile } from "@extra/shared/types/worker";
-import {
-  applications,
-  attendanceRecords,
-  companies,
-  jobPostContacts,
-  jobPosts,
-  workers,
-} from "@/mocks/fixtures";
+import { companies, workers } from "@/mocks/fixtures";
+import { resetStore, store } from "@/mocks/store";
 import { err } from "./result";
+
+// O estado mutável mora em src/mocks/store.ts (fixtures + localStorage).
+// Reexportado aqui porque lib/api/ é a única porta para os dados — nenhum
+// componente importa de src/mocks/ direto (regra de ouro do outside-in).
+export { store };
 
 // Único arquivo autorizado a enxergar src/mocks/ (regra de ouro do outside-in).
 // Quando a Fase 4 chegar, as funções de lib/api/ trocam withMock() por fetch e
@@ -50,17 +49,14 @@ export async function withMock<T>(
   return produce();
 }
 
-// Estado mutável em memória: candidatar-se a uma vaga precisa aparecer na tela
-// de candidaturas logo depois. ponytail: reinicia a cada reload e não é
-// compartilhado entre servidor e cliente — suficiente enquanto for mock.
-export const store = {
-  companies: [...companies],
-  workers: [...workers],
-  jobPosts: [...jobPosts],
-  jobPostContacts: [...jobPostContacts],
-  applications: [...applications],
-  attendanceRecords: [...attendanceRecords],
-};
+/**
+ * Volta o estado da demonstração para as fixtures, apagando o localStorage
+ * (/demo/reset). Fica aqui, e não em src/mocks/, porque a tela que chama é um
+ * componente — e componente só enxerga lib/api/.
+ */
+export function resetMockState(): void {
+  resetStore();
+}
 
 const DEFAULT_COMPANY_ID = companies[0].id;
 const DEFAULT_WORKER_ID = workers[0].id;
@@ -80,8 +76,12 @@ export const DEMO_ROLE_COOKIE = "extra_demo_role";
  * existem porque createCompany já é chamado de formulário client-side hoje
  * (company-registration-form.tsx), e as escritas da área da empresa
  * (publicar vaga, marcar presença) devem seguir o mesmo padrão.
+ *
+ * O `import()` de next/headers é dinâmico de propósito: estático, ele entra
+ * no bundle do navegador e o Next recusa o módulo inteiro em qualquer
+ * Client Component que chegue até aqui.
  */
-export async function readDemoCookie(cookieName: string): Promise<string | null> {
+export async function readCookie(cookieName: string): Promise<string | null> {
   if (typeof window === "undefined") {
     try {
       const { cookies } = await import("next/headers");
@@ -107,7 +107,7 @@ export async function readDemoCookie(cookieName: string): Promise<string | null>
 export async function getCurrentCompanyId(): Promise<string> {
   if (!isMockMode) return DEFAULT_COMPANY_ID;
 
-  const chosen = await readDemoCookie(DEMO_COMPANY_COOKIE);
+  const chosen = await readCookie(DEMO_COMPANY_COOKIE);
   const isValid = chosen && store.companies.some((c) => c.id === chosen);
   return isValid ? chosen : DEFAULT_COMPANY_ID;
 }
@@ -119,7 +119,7 @@ export async function getCurrentCompanyId(): Promise<string> {
 export async function getCurrentWorkerId(): Promise<string> {
   if (!isMockMode) return DEFAULT_WORKER_ID;
 
-  const chosen = await readDemoCookie(DEMO_WORKER_COOKIE);
+  const chosen = await readCookie(DEMO_WORKER_COOKIE);
   const isValid = chosen && store.workers.some((w) => w.id === chosen);
   return isValid ? chosen : DEFAULT_WORKER_ID;
 }

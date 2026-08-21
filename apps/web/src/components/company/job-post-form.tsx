@@ -314,7 +314,7 @@ function SuccessState({ job }: { job: JobPost }) {
       <p className="text-muted-foreground mt-1 text-sm">
         Os trabalhadores da função e da região já podem ser notificados.
       </p>
-      <Link href="/empresa" className={cn(buttonVariants(), "mt-4")}>
+      <Link href="/empresa/vagas" className={cn(buttonVariants(), "mt-4")}>
         Ver minhas vagas
       </Link>
     </div>
