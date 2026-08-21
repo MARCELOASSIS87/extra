@@ -1,4 +1,4 @@
-import type { JobRole } from "../types/job.js";
+import type { JobRole } from "../types/job";
 
 /**
  * Nome do ícone (lucide-react) por função. Fica como string, não como

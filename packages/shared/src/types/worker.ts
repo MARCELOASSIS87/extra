@@ -1,5 +1,5 @@
-import type { JobRole } from "./job.js";
-import type { AttendanceSummary } from "./attendance.js";
+import type { JobRole } from "./job";
+import type { AttendanceSummary } from "./attendance";
 
 export type WorkerStatus = "incomplete" | "complete" | "self_deactivated";
 

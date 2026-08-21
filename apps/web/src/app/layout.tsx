@@ -17,6 +17,7 @@ import {
   isMockMode,
 } from "@/lib/api/mock";
 import { getSessionRole } from "@/lib/api/session";
+import { SITE_URL } from "@/lib/site";
 
 // Uma família só, três pesos: cada peso ausente força o navegador a
 // sintetizar negrito, o que borra a letra. 400 corpo, 500 ênfase, 700 título.
@@ -28,6 +29,9 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
+  // Sem isso, og:image de rota (opengraph-image.tsx) sai com URL relativa —
+  // funciona no preview do Next, mas quebra em quem raspa o link de fora.
+  metadataBase: new URL(SITE_URL),
   title: {
     default: `Extraqui — trabalho extra em ${CITY}`,
     template: "%s · Extraqui",

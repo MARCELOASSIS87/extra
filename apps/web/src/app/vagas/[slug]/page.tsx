@@ -7,8 +7,15 @@ import { listMyApplications } from "@/lib/api/applications";
 import { getMyWorkerProfile } from "@/lib/api/workers";
 import { getSessionRole } from "@/lib/api/session";
 import { JobApplyPanel } from "@/components/jobs/job-apply-panel";
+import { ShareJobButton } from "@/components/jobs/share-job-button";
 import { JOB_ROLE_ICONS } from "@/lib/job-role-icons";
-import { formatJobDate, formatMoney, formatTimeRange } from "@/lib/format";
+import {
+  formatJobDate,
+  formatJobWeekdayAndDate,
+  formatMoney,
+  formatTimeRange,
+} from "@/lib/format";
+import { SITE_URL } from "@/lib/site";
 
 export async function generateMetadata({
   params,
@@ -16,7 +23,24 @@ export async function generateMetadata({
   const { slug } = await params;
   const result = await getJobBySlug(slug);
   if (!result.ok || !result.data) return {};
-  return { title: result.data.title };
+  const job = result.data;
+
+  const { weekday, shortDate } = formatJobWeekdayAndDate(job.date);
+  const vacancies = job.vacancies === 1 ? "1 vaga" : `${job.vacancies} vagas`;
+  const description = `${JOB_ROLE_LABELS[job.role]} em ${job.city} — ${weekday} ${shortDate}, ${formatTimeRange(job.startTime, job.endTime)} — ${formatMoney(job.payAmount)}. ${vacancies}.`;
+  const url = `${SITE_URL}/vagas/${job.slug}`;
+
+  return {
+    title: job.title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: job.title,
+      description,
+      url,
+      type: "website",
+    },
+  };
 }
 
 export default async function JobDetailPage({
@@ -48,10 +72,13 @@ export default async function JobDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
-      <span className="bg-secondary text-secondary-foreground inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium">
-        <RoleIcon aria-hidden="true" className="size-3.5 shrink-0" />
-        {JOB_ROLE_LABELS[job.role]}
-      </span>
+      <div className="flex items-start justify-between gap-3">
+        <span className="bg-secondary text-secondary-foreground inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium">
+          <RoleIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          {JOB_ROLE_LABELS[job.role]}
+        </span>
+        <ShareJobButton job={job} />
+      </div>
 
       <h1 className="mt-3 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
         {job.title}

@@ -1,4 +1,5 @@
 import type { ApiResult } from "@extra/shared/types/api";
+import type { AttendanceSummary } from "@extra/shared/types/attendance";
 import type { Worker, WorkerPublicProfile } from "@extra/shared/types/worker";
 import {
   applications,
@@ -158,6 +159,29 @@ export function randomShortCode(): string {
 }
 
 /**
+ * Agregado público de presença: contestado e vencido (>12 meses) não contam
+ * (§16.4, §16.7) — computado na hora a partir de `attendanceRecords`, não de
+ * um contador guardado, para nunca ficar defasado de uma contestação ou de um
+ * registro que passou da validade.
+ */
+function computeAttendanceSummary(workerId: string): AttendanceSummary {
+  const now = nowIso();
+  const countable = store.attendanceRecords.filter(
+    (record) =>
+      record.workerId === workerId &&
+      (record.status === "present" || record.status === "absent") &&
+      record.expiresAt > now,
+  );
+
+  return {
+    present: countable.filter((record) => record.status === "present").length,
+    absent: countable.filter((record) => record.status === "absent").length,
+    distinctCompanies: new Set(countable.map((record) => record.companyId))
+      .size,
+  };
+}
+
+/**
  * Projeção que a empresa enxerga: sem CPF e sem data de nascimento.
  * No mundo real quem faz esse corte é o servidor; aqui o mock precisa imitar
  * para nenhuma tela se acostumar a receber dado sensível.
@@ -177,7 +201,7 @@ export function toPublicProfile(worker: Worker): WorkerPublicProfile {
       ? `/mock-media/${worker.introVideoKey}`
       : null,
     hasCompleteProfile: worker.status === "complete",
-    attendance: worker.attendance,
+    attendance: computeAttendanceSummary(worker.id),
     memberSince: worker.createdAt,
   };
 }

@@ -9,8 +9,7 @@ import { applyToJob, markApplicationContacted } from "@/lib/api/applications";
 import { getJobContact } from "@/lib/api/jobs";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-const TIME_ZONE = "America/Sao_Paulo";
+import { formatJobWeekdayAndDate } from "@/lib/format";
 
 /**
  * Mensagem do §16.5: identifica quem é, casa a conversa com o `shortCode` e
@@ -21,20 +20,11 @@ function buildWhatsappMessage(
   workerName: string,
   shortCode: string,
 ) {
-  const jobDate = new Date(`${job.date}T12:00:00Z`);
-  const dia = new Intl.DateTimeFormat("pt-BR", {
-    weekday: "long",
-    timeZone: TIME_ZONE,
-  }).format(jobDate);
-  const data = new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: TIME_ZONE,
-  }).format(jobDate);
+  const { weekday, shortDate } = formatJobWeekdayAndDate(job.date);
 
   return [
     `Oi! Sou ${workerName}.`,
-    `Me candidatei à vaga de ${job.title}, ${dia} ${data} às ${job.startTime}.`,
+    `Me candidatei à vaga de ${job.title}, ${weekday} ${shortDate} às ${job.startTime}.`,
     `Código: ${shortCode}`,
     `— via extraqui.com.br`,
   ].join("\n");

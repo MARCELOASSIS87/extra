@@ -1,4 +1,4 @@
-import type { JobRole } from "../types/job.js";
+import type { JobRole } from "../types/job";
 
 // Rótulos que aparecem na interface e, depois, no texto da notificação push.
 // Ficam aqui para o front e a API dizerem a mesma coisa.

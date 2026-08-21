@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { JobRole } from "../types/job.js";
+import type { JobRole } from "../types/job";
 
 const jobRoleValues = [
   "garcom",

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { jobRoleSchema } from "./job.js";
+import { jobRoleSchema } from "./job";
 
 const MIN_AGE = 18;
 

@@ -4,10 +4,13 @@ import type { JobPost } from "@extra/shared/types/job";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { formatJobDate, formatMoney, formatTimeRange } from "@/lib/format";
 import { JOB_ROLE_ICONS } from "@/lib/job-role-icons";
+import { ShareJobButton } from "@/components/jobs/share-job-button";
 
 /**
  * Cartão da vaga na listagem. O card inteiro é o link — alvo grande é o que
- * funciona no ônibus, com uma mão.
+ * funciona no ônibus, com uma mão. O botão de compartilhar por isso fica fora
+ * do `<Link>`, sobreposto no canto (botão dentro de link não é HTML válido e
+ * ainda navegaria no clique) — `relative` no `<li>` + `absolute` nele.
  */
 export function JobCard({ job }: { job: JobPost }) {
   const RoleIcon = JOB_ROLE_ICONS[job.role];
@@ -17,21 +20,23 @@ export function JobCard({ job }: { job: JobPost }) {
     // não quebra linha (o local truncado abaixo) — sem isso a coluna toda do
     // grid alarga para caber o cartão mais "largo" e a página passa a rolar
     // na horizontal em telas estreitas.
-    <li className="min-w-0">
+    <li className="relative min-w-0">
       <Link
         href={`/vagas/${job.slug}`}
         className="hover:border-primary/30 focus-visible:ring-ring block rounded-xl border p-4 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2"
       >
-        <div className="flex items-start justify-between gap-3">
-          <span className="bg-secondary text-secondary-foreground inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium">
-            <RoleIcon aria-hidden="true" className="size-3.5 shrink-0" />
-            {JOB_ROLE_LABELS[job.role]}
-          </span>
-          {job.isHighlighted && (
-            <span className="border-foreground/20 rounded-md border px-2 py-1 text-xs font-medium">
-              Destaque
+        <div className="flex items-start justify-between gap-3 pr-9">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="bg-secondary text-secondary-foreground inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium">
+              <RoleIcon aria-hidden="true" className="size-3.5 shrink-0" />
+              {JOB_ROLE_LABELS[job.role]}
             </span>
-          )}
+            {job.isHighlighted && (
+              <span className="border-foreground/20 rounded-md border px-2 py-1 text-xs font-medium">
+                Destaque
+              </span>
+            )}
+          </div>
         </div>
 
         <h3 className="mt-3 text-balance text-xl font-bold leading-snug tracking-tight">
@@ -83,6 +88,10 @@ export function JobCard({ job }: { job: JobPost }) {
           </span>
         </p>
       </Link>
+
+      <div className="absolute right-4 top-4">
+        <ShareJobButton job={job} compact />
+      </div>
     </li>
   );
 }

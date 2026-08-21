@@ -4,9 +4,9 @@ import {
   workerStep2PhoneSchema,
   workerStep4ProfileSchema,
   workerStep6ReferencesSchema,
-} from "./worker.js";
-import { jobPostSchema, hasDiscriminatoryLanguage } from "./job.js";
-import { companyRegistrationSchema } from "./company.js";
+} from "./worker";
+import { jobPostSchema, hasDiscriminatoryLanguage } from "./job";
+import { companyRegistrationSchema } from "./company";
 
 const yearsAgo = (years: number): string => {
   const date = new Date();
