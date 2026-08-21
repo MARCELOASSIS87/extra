@@ -19,12 +19,13 @@ import {
 import { getSessionRole } from "@/lib/api/session";
 import { SITE_URL } from "@/lib/site";
 
-// Uma família só, três pesos: cada peso ausente força o navegador a
-// sintetizar negrito, o que borra a letra. 400 corpo, 500 ênfase, 700 título.
+// Uma família só: cada peso ausente força o navegador a sintetizar negrito,
+// o que borra a letra. 400 corpo, 500 ênfase, 700 título, 800 herói (§
+// identidade visual — "peso 800" no título da home).
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  weight: ["400", "500", "700", "800"],
   display: "swap",
 });
 

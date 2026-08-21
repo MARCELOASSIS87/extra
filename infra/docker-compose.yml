@@ -1,0 +1,29 @@
+# Fase 3: só o front (mock). api/postgres/minio entram quando a Fase 4/5 estiver pronta.
+services:
+  extra-web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    container_name: extra-web
+    restart: always
+    environment:
+      NEXT_PUBLIC_API_MODE: mock
+      NEXT_PUBLIC_SITE_URL: https://extraqui.com.br
+    networks:
+      - root_default
+    expose:
+      - "3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.extra-web.entrypoints=web,websecure"
+      - "traefik.http.routers.extra-web.rule=Host(`extraqui.com.br`)"
+      - "traefik.http.routers.extra-web.tls=true"
+      - "traefik.http.routers.extra-web.tls.certresolver=mytlschallenge"
+      - "traefik.http.services.extra-web.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.extra-web-force-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.extra-web-force-https.redirectscheme.permanent=true"
+      - "traefik.http.routers.extra-web.middlewares=extra-web-force-https"
+
+networks:
+  root_default:
+    external: true

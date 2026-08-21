@@ -7,6 +7,7 @@ import { jobRoleSchema } from "@extra/shared/schemas/job";
 import { listJobs } from "@/lib/api/jobs";
 import { JobCard } from "@/components/jobs/job-card";
 import { RoleFilterSheet } from "@/components/filters/role-filter-sheet";
+import { HomeHero } from "@/components/home/hero";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -24,86 +25,55 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   });
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8">
-      <section>
-        {/* Nomeia a cidade em vez de "sua região": não existe seletor de
-            região, e o MVP atende uma cidade só. */}
-        <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-          Trabalho extra em {CITY}
-        </h1>
-        <p className="mt-4 text-balance text-xl font-medium">
-          O trabalho existe. O que falta é organização.
-        </p>
-        <p className="text-muted-foreground mt-3 text-sm">
-          Vagas por diária em cozinha, salão, limpeza, segurança e eventos. Você
-          se candidata e combina direto com a empresa.
-        </p>
+    <>
+      <HomeHero cityLabel={`${CITY} — MG`} />
 
-        {/* Os dois caminhos lado a lado: quem chega precisa saber em dois
-            segundos qual dos dois é ele. */}
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <Link
-            href="/cadastro/trabalhador"
-            className={cn(buttonVariants({ size: "lg" }), "h-12 w-full")}
-          >
-            Quero trabalhar
-          </Link>
-          <Link
-            href="/cadastro/empresa"
-            className={cn(
-              buttonVariants({ variant: "outline", size: "lg" }),
-              "h-12 w-full",
+      <div className="mx-auto w-full max-w-3xl px-4 py-10">
+        <section>
+          <h2 className="text-xl font-bold tracking-tight">Vagas abertas</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            As publicadas mais recentemente.
+          </p>
+
+          <div className="mt-4">
+            <RoleFilterSheet value={role} />
+          </div>
+
+          <div className="mt-6">
+            {!result.ok ? (
+              <ErrorState />
+            ) : result.data.items.length === 0 ? (
+              <EmptyState role={role} />
+            ) : (
+              <>
+                <ul className="grid gap-3">
+                  {result.data.items.map((job) => (
+                    <JobCard key={job.id} job={job} />
+                  ))}
+                </ul>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Link
+                    href={role ? `/vagas?funcao=${role}` : "/vagas"}
+                    className={cn(
+                      buttonVariants({ variant: "outline" }),
+                      "h-11",
+                    )}
+                  >
+                    Ver todas as vagas
+                  </Link>
+                  {result.data.total > result.data.items.length && (
+                    <p className="text-muted-foreground text-sm">
+                      Mostrando {result.data.items.length} de{" "}
+                      {result.data.total} vagas abertas.
+                    </p>
+                  )}
+                </div>
+              </>
             )}
-          >
-            Quero contratar
-          </Link>
-        </div>
-        <p className="text-muted-foreground mt-2 text-xs">
-          Cadastro gratuito para quem procura trabalho.
-        </p>
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-xl font-bold tracking-tight">Vagas abertas</h2>
-        <p className="text-muted-foreground mt-1 text-sm">
-          As publicadas mais recentemente.
-        </p>
-
-        <div className="mt-4">
-          <RoleFilterSheet value={role} />
-        </div>
-
-        <div className="mt-6">
-          {!result.ok ? (
-            <ErrorState />
-          ) : result.data.items.length === 0 ? (
-            <EmptyState role={role} />
-          ) : (
-            <>
-              <ul className="grid gap-3">
-                {result.data.items.map((job) => (
-                  <JobCard key={job.id} job={job} />
-                ))}
-              </ul>
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <Link
-                  href={role ? `/vagas?funcao=${role}` : "/vagas"}
-                  className={cn(buttonVariants({ variant: "outline" }), "h-11")}
-                >
-                  Ver todas as vagas
-                </Link>
-                {result.data.total > result.data.items.length && (
-                  <p className="text-muted-foreground text-sm">
-                    Mostrando {result.data.items.length} de {result.data.total}{" "}
-                    vagas abertas.
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </section>
-    </div>
+          </div>
+        </section>
+      </div>
+    </>
   );
 }
 
