@@ -60,7 +60,6 @@ export function JobPostForm() {
       neighborhood: "",
       requirements: null,
       vacancies: 1,
-      contactPhone: "",
     },
   });
 
@@ -272,26 +271,6 @@ export function JobPostForm() {
           })}
         />
         <FieldError message={errors.requirements?.message} />
-      </div>
-
-      <div className="grid gap-1.5">
-        <label htmlFor="contactPhone" className={labelClass}>
-          Telefone de contato (WhatsApp)
-        </label>
-        <input
-          id="contactPhone"
-          type="tel"
-          autoComplete="tel"
-          placeholder="+5535912345678"
-          aria-invalid={!!errors.contactPhone || undefined}
-          className={fieldClass}
-          {...register("contactPhone")}
-        />
-        <p className="text-muted-foreground text-xs">
-          Formato internacional, com DDD. Fica no seu cadastro da vaga e não
-          aparece para ninguém: quem chama no WhatsApp é você, pelo painel.
-        </p>
-        <FieldError message={errors.contactPhone?.message} />
       </div>
 
       {errors.root && <FieldError message={errors.root.message} />}

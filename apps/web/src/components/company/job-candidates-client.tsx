@@ -88,17 +88,20 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
           <ul className="grid gap-3">
             {result.data.candidates.map(
               ({ application, worker, workerPhone }) => (
+                // Link esticado: "Ver perfil completo" é um link de verdade,
+                // e o `before` dele cobre o card inteiro — alvo grande, uma
+                // mão, no ônibus. Envolver o card num <a> não dá: botão dentro
+                // de link é HTML inválido. Quem é interativo fica fora do
+                // <Link>, com `relative z-10` para ser pintado por cima da
+                // camada e continuar clicável e alcançável pelo teclado.
                 <li
                   key={application.id}
-                  className="rounded-xl border p-4 shadow-sm"
+                  className="has-[a:focus-visible]:ring-ring group hover:border-primary/40 relative cursor-pointer rounded-xl border p-4 shadow-sm transition-all duration-150 hover:shadow-md has-[a:focus-visible]:ring-2"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <Link
-                      href={`/empresa/vagas/${jobId}/candidatos/${worker.id}`}
-                      className="min-w-0 truncate font-medium hover:underline"
-                    >
+                    <p className="min-w-0 truncate font-medium group-hover:underline">
                       {worker.fullName}
-                    </Link>
+                    </p>
                     <span className="bg-secondary text-secondary-foreground shrink-0 rounded-md px-2 py-1 text-xs font-medium">
                       Código {application.shortCode}
                     </span>
@@ -109,16 +112,28 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
                     {worker.experience && ` · ${worker.experience}`}
                   </p>
 
-                  <ContactCandidateButton
-                    applicationId={application.id}
-                    workerPhone={workerPhone}
-                    workerFirstName={worker.firstName}
-                    companyName={companyName}
-                    job={result.data.job}
-                    shortCode={application.shortCode}
-                    contactedAt={application.contactedAt}
-                    className="mt-3"
-                  />
+                  <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-2">
+                    <ContactCandidateButton
+                      applicationId={application.id}
+                      workerPhone={workerPhone}
+                      workerFirstName={worker.firstName}
+                      companyName={companyName}
+                      job={result.data.job}
+                      shortCode={application.shortCode}
+                      contactedAt={application.contactedAt}
+                      className="relative z-10"
+                    />
+                    {/* Sem `truncate`/`overflow-hidden` aqui: o overflow do
+                        próprio link recortaria o `before` de volta ao tamanho
+                        do texto e o card deixaria de ser clicável. */}
+                    <Link
+                      href={`/empresa/vagas/${jobId}/candidatos/${worker.id}`}
+                      className="text-muted-foreground hover:text-foreground focus-visible:outline-none inline-flex h-8 items-center gap-1 text-sm underline-offset-4 before:absolute before:inset-0 before:rounded-xl hover:underline"
+                    >
+                      Ver perfil completo
+                      <span aria-hidden="true">→</span>
+                    </Link>
+                  </div>
                 </li>
               ),
             )}

@@ -44,6 +44,7 @@ export interface WorkerPublicProfile {
   roles: JobRole[];
   experience: string;
   introVideoUrl: string | null;
+  introVideoPosterUrl: string | null; // primeiro quadro, gerado no upload
   hasCompleteProfile: boolean;
   attendance: AttendanceSummary;
   memberSince: string;

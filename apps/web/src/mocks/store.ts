@@ -1,13 +1,12 @@
 import type { Application } from "@extra/shared/types/application";
 import type { AttendanceRecord } from "@extra/shared/types/attendance";
 import type { Company } from "@extra/shared/types/company";
-import type { JobPost, JobPostContact } from "@extra/shared/types/job";
+import type { JobPost } from "@extra/shared/types/job";
 import type { Worker } from "@extra/shared/types/worker";
 import {
   applications,
   attendanceRecords,
   companies,
-  jobPostContacts,
   jobPosts,
   workers,
 } from "./fixtures";
@@ -31,7 +30,6 @@ interface MockState {
   companies: Company[];
   workers: Worker[];
   jobPosts: JobPost[];
-  jobPostContacts: JobPostContact[];
   applications: Application[];
   attendanceRecords: AttendanceRecord[];
 }
@@ -42,7 +40,6 @@ const COLLECTIONS: CollectionName[] = [
   "companies",
   "workers",
   "jobPosts",
-  "jobPostContacts",
   "applications",
   "attendanceRecords",
 ];
@@ -52,7 +49,6 @@ function fromFixtures(): MockState {
     companies: [...companies],
     workers: [...workers],
     jobPosts: [...jobPosts],
-    jobPostContacts: [...jobPostContacts],
     applications: [...applications],
     attendanceRecords: [...attendanceRecords],
   };
@@ -137,13 +133,6 @@ export const store = {
   },
   set jobPosts(value: JobPost[]) {
     writeCollection("jobPosts", value);
-  },
-
-  get jobPostContacts() {
-    return currentState().jobPostContacts;
-  },
-  set jobPostContacts(value: JobPostContact[]) {
-    writeCollection("jobPostContacts", value);
   },
 
   get applications() {

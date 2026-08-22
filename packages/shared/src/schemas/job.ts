@@ -73,13 +73,9 @@ export const jobPostSchema = z.object({
   neighborhood: z.string().trim().min(1, "Informe o bairro"),
   // Cidade não entra no formulário: MVP de cidade única, atribuída pelo servidor.
   requirements: screenedText(z.string().trim().min(1)).nullable(),
+  // Sem telefone: a direção do contato é única (§16.5) e quem chama é a
+  // empresa, pelo painel, com o número que já está em `Company.phone`.
   vacancies: z.number().int().positive("Informe ao menos 1 vaga"),
-  contactPhone: z
-    .string()
-    .regex(
-      /^\+[1-9]\d{7,14}$/,
-      "Telefone deve estar no formato internacional (+55...)",
-    ),
 });
 
 export type JobPostInput = z.infer<typeof jobPostSchema>;

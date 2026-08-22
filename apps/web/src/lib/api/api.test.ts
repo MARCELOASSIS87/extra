@@ -87,7 +87,6 @@ async function main() {
     neighborhood: "Centro",
     requirements: null,
     vacancies: 2,
-    contactPhone: "+5535991258324",
   };
 
   // O filtro do §14.1 vale na camada de dados, não só no formulário.

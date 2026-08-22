@@ -1,7 +1,7 @@
 import type { Application } from "@extra/shared/types/application";
 import type { AttendanceRecord } from "@extra/shared/types/attendance";
 import type { Company } from "@extra/shared/types/company";
-import type { JobPost, JobPostContact } from "@extra/shared/types/job";
+import type { JobPost } from "@extra/shared/types/job";
 import type { Worker } from "@extra/shared/types/worker";
 
 // Dados falsos para a camada mock. MVP de cidade única: tudo em Poços de Caldas.
@@ -2758,41 +2758,6 @@ export const jobPosts: JobPost[] = [
     publishedAt: "2026-08-13T10:00:00.000Z",
     expiresAt: "2026-08-18T23:59:00.000Z",
   },
-];
-
-// Nunca faz parte do payload público — só entra no store separado, exposto
-// para ninguém: na §16.5 quem inicia o contato é sempre a empresa.
-export const jobPostContacts: JobPostContact[] = [
-  { jobPostId: "d499c7b2-5217-4eba-abed-df4abba3aaa1", contactPhone: "+5535991258324" },
-  { jobPostId: "f6515bd6-ab62-44d3-ae8f-0a7c5a5c69a3", contactPhone: "+5535991266243" },
-  { jobPostId: "8a3af3f5-6654-4593-a6f4-27a32f7d80d7", contactPhone: "+5535991274162" },
-  { jobPostId: "54351dab-1106-4e1c-af65-6b09ace3e432", contactPhone: "+5535991282081" },
-  { jobPostId: "97126d18-0367-4afa-ad82-a26942a97a1e", contactPhone: "+5535991290000" },
-  { jobPostId: "8323e56e-dff5-49c9-a658-2fe57fd0fa40", contactPhone: "+5535991297919" },
-  { jobPostId: "ab5cdaf5-f519-4f54-a0d8-954ff099405d", contactPhone: "+5535991305838" },
-  { jobPostId: "07cbbb9a-81c2-4024-ad62-206241cbeb37", contactPhone: "+5535991313757" },
-  { jobPostId: "4642687c-b9b1-4b3d-a627-6454a54365a4", contactPhone: "+5535991321676" },
-  { jobPostId: "94866a34-de10-44d4-ab10-d0370a460dfd", contactPhone: "+5535991329595" },
-  { jobPostId: "79ec3726-cbc2-48d1-a54f-42996cfec066", contactPhone: "+5535991337514" },
-  { jobPostId: "8b03168b-54e4-4d71-a9f1-1f7d1119f51d", contactPhone: "+5535991345433" },
-  { jobPostId: "83ac8da5-a64f-41da-ab4d-16a75617d890", contactPhone: "+5535991258324" },
-  { jobPostId: "1bfdd15f-d22b-44c2-a34b-58b267d9968f", contactPhone: "+5535991266243" },
-  { jobPostId: "8a53d5f0-0acf-4092-ad80-b6ecc9e3fd2f", contactPhone: "+5535991274162" },
-  { jobPostId: "e4c956a9-2acd-4f62-a3f9-b78d2f787992", contactPhone: "+5535991282081" },
-  { jobPostId: "447dc1c8-04bc-4396-a8c3-93668044ea5a", contactPhone: "+5535991290000" },
-  { jobPostId: "79adb75b-f480-432a-a6a7-15e5868b2433", contactPhone: "+5535991297919" },
-  { jobPostId: "1104df36-c8ad-4184-a9c8-8ef6e5106d2d", contactPhone: "+5535991305838" },
-  { jobPostId: "662b1973-fa9d-4f65-a06b-f15fbdad9343", contactPhone: "+5535991313757" },
-  { jobPostId: "1be4141b-2cd7-4c6a-ae1b-7f506f1ddcde", contactPhone: "+5535991321676" },
-  { jobPostId: "79258fb1-52db-4d19-afb2-78d1743548ea", contactPhone: "+5535991329595" },
-  { jobPostId: "8fda0da9-660c-429d-a2e9-c2ac2ebbedd3", contactPhone: "+5535991337514" },
-  { jobPostId: "19d2b079-b02b-4e54-a668-b55ae1035ae2", contactPhone: "+5535991345433" },
-  { jobPostId: "0d1aeede-8e43-4263-a78f-271c7e68b378", contactPhone: "+5535991258324" },
-  { jobPostId: "1ddaca44-79c7-4ba5-8f51-b981afbd342e", contactPhone: "+5535991258324" },
-  { jobPostId: "681df327-eb00-47bf-8930-6723087101dd", contactPhone: "+5535991266243" },
-  { jobPostId: "fc67e3b6-e7e3-4936-9e21-4d6923ad89c9", contactPhone: "+5535991274162" },
-  { jobPostId: "f8db4525-e0cf-43dc-8589-f138b2621b87", contactPhone: "+5535991258324" },
-  { jobPostId: "10a83e5e-d320-4560-a87e-f92398f7a3a3", contactPhone: "+5535991290000" },
 ];
 
 // AttendanceSummary de cada trabalhador é o agregado dos últimos 12 meses e

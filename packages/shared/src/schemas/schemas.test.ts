@@ -116,7 +116,6 @@ const validJob = {
   neighborhood: "Centro",
   requirements: "Uniforme preto e social",
   vacancies: 3,
-  contactPhone: "+5511987654321",
 };
 assert.equal(jobPostSchema.safeParse(validJob).success, true);
 assert.equal(

@@ -204,6 +204,12 @@ export function toPublicProfile(worker: Worker): WorkerPublicProfile {
     introVideoUrl: worker.introVideoKey
       ? `/mock-media/${worker.introVideoKey}`
       : null,
+    // ponytail: poster por convenção de nome ao lado do vídeo, em vez de mais
+    // uma chave no Worker. Vira campo próprio quando o upload real gerar a
+    // miniatura com outro nome.
+    introVideoPosterUrl: worker.introVideoKey
+      ? `/mock-media/${worker.introVideoKey.replace(/\.\w+$/, ".jpg")}`
+      : null,
     hasCompleteProfile: worker.status === "complete",
     attendance: computeAttendanceSummary(worker.id),
     memberSince: worker.createdAt,

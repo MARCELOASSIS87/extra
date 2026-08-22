@@ -139,11 +139,10 @@ export async function createJob(
       return err("company_not_found", "Empresa não encontrada.");
     }
 
-    const { contactPhone, ...data } = parsed.data;
-    const jobId = randomId();
+    const data = parsed.data;
     const job: JobPost = {
       ...data,
-      id: jobId,
+      id: randomId(),
       slug: `${slugify(data.title)}-${randomId().slice(0, 6)}`,
       companyId: company.id,
       city: company.city,
@@ -156,10 +155,6 @@ export async function createJob(
     };
 
     store.jobPosts = [job, ...store.jobPosts];
-    store.jobPostContacts = [
-      ...store.jobPostContacts,
-      { jobPostId: jobId, contactPhone },
-    ];
     return ok(job);
   });
 }

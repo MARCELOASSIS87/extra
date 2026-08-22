@@ -47,10 +47,3 @@ export interface JobPost {
   publishedAt: string;
   expiresAt: string;
 }
-
-// Nunca faz parte do payload público. Só é servido após candidatura ativa
-// (§16.5) — é o telefone que o trabalhador chama no WhatsApp.
-export interface JobPostContact {
-  jobPostId: string;
-  contactPhone: string;
-}

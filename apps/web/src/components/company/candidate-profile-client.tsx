@@ -91,12 +91,15 @@ export function CandidateProfileClient({
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
       {/* O vídeo é o cartão de visitas do trabalhador: vem antes de tudo. */}
       {worker.introVideoUrl ? (
+        // 9:16 porque é gravado no celular, na mão. Toca aqui mesmo: nada de
+        // link ou download no meio do caminho de quem está escolhendo alguém.
         <video
           src={worker.introVideoUrl}
+          poster={worker.introVideoPosterUrl ?? undefined}
           controls
           playsInline
           preload="metadata"
-          className="max-h-[70vh] w-full rounded-xl border bg-black object-contain"
+          className="aspect-[9/16] w-full rounded-xl border bg-black object-contain"
         />
       ) : (
         <div className="rounded-xl border border-dashed p-6 text-center">
@@ -104,7 +107,9 @@ export function CandidateProfileClient({
             aria-hidden="true"
             className="text-muted-foreground/50 mx-auto size-10"
           />
-          <p className="mt-3 font-medium">Sem vídeo de apresentação.</p>
+          <p className="mt-3 font-medium">
+            {worker.firstName} ainda não gravou o vídeo de apresentação.
+          </p>
           <p className="text-muted-foreground mt-1 text-sm">
             O vídeo é opcional no cadastro. O resto do perfil está abaixo.
           </p>
