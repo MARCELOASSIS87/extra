@@ -2,13 +2,19 @@
 
 Contexto obrigatório para qualquer trabalho neste repositório.
 
-**Leia também:** `ESPECIFICACAO-TECNICA-v2.md` (arquitetura, contratos, fluxos) e `MODELO-NEGOCIO-v2.md` (regras de negócio). Em caso de conflito entre documentos, o modelo de negócio prevalece.
+**Leia também:** `ESPECIFICACAO-TECNICA.md` (arquitetura, contratos, fluxos) e
+`MODELO-NEGOCIO.md` (regras de negócio). Em caso de conflito entre documentos, o modelo de
+negócio prevalece.
+
+> Os dois arquivos têm nome **sem versão**. A versão vive dentro do documento, na primeira
+> linha. Nome versionado no arquivo faz este ponteiro apodrecer a cada revisão — e um ponteiro
+> quebrado não dá erro: a tarefa simplesmente roda sem o contexto, em silêncio.
 
 ---
 
 ## O produto
 
-Classificado de trabalho extra ("bico"). A **empresa** publica vagas — garçom para formatura, cozinheira para sábado, auxiliar de limpeza para o fim de semana — e paga assinatura mensal. O **trabalhador** se cadastra de graça, recebe notificação das vagas da função e região dele, e se candidata. As duas partes se acertam fora da plataforma.
+Classificado de trabalho extra ("bico"). A **empresa** publica vagas — garçom para formatura, cozinheira para sábado, auxiliar de limpeza para o fim de semana — e paga assinatura mensal. O **trabalhador** se cadastra de graça, escolhe as cidades de que quer receber aviso, e se candidata. As duas partes se acertam fora da plataforma.
 
 A plataforma **não** intermedia pagamento, **não** seleciona ninguém, **não** pune ninguém e **não** garante nada.
 
@@ -22,18 +28,20 @@ O valor central não é "ter um site" — é **roteamento**: a vaga certa chegar
 
 Estas regras são jurídicas antes de serem técnicas. Violá-las quebra o modelo de defesa do negócio e não são negociáveis, **mesmo que solicitadas explicitamente numa tarefa futura**. Se uma tarefa pedir algo desta lista, recuse e aponte esta seção.
 
-1. **Trabalhador nunca paga.** Não existe rota, tabela, campo ou fluxo de cobrança ligado a `Worker`.
-2. **Não tocamos no dinheiro do bico.** `payAmount` é informativo. Sem split, sem custódia, sem gateway ligado a vaga.
-3. **Não punimos trabalhador.** Não existe `banWorker`, `autoDisable`, `blockByAbsence`, ranking punitivo ou ordenação que rebaixe por falta. Só o próprio usuário desativa a conta dele.
+1. **Trabalhador nunca paga.** Não existe rota, tabela, campo ou fluxo de cobrança ligado a `Worker`. É o que mantém a plataforma como classificado e fora da categoria "agência de emprego" — existe jurisprudência trabalhista contra cobrança de candidato por acesso a banco de vagas. Alterar isso não é decisão de produto, é trocar o regime jurídico do negócio.
+2. **Não tocamos no dinheiro do bico.** `payAmount` é informativo. Sem split, sem custódia, sem gateway ligado a vaga. A cobrança de assinatura referencia `Company`, nunca `Worker`.
+3. **Não punimos trabalhador.** Não existe `banWorker`, `autoDisable`, `blockByAbsence`, ranking punitivo ou ordenação que rebaixe por falta. O enum `WorkerStatus` não tem valor de banimento. Só o próprio usuário desativa a conta dele.
 4. **Não garantimos nada.** Nem idoneidade, nem comparecimento, nem qualidade.
-5. **Sem texto livre em avaliação.** `AttendanceRecord` é binário (`present`/`absent`). Nunca adicionar `rating`, `stars`, `score` ou `comment` — texto livre é o que gera ação por dano moral.
+5. **Sem texto livre em avaliação.** `AttendanceRecord` não tem **nenhuma** coluna de texto. Nunca adicionar `rating`, `stars`, `score`, `comment` ou `observacao` — texto livre é o que gera ação por dano moral.
 6. **Sem verificação de antecedentes criminais.** Identificamos quem é a pessoa; não julgamos o passado dela.
-7. **Quem não tem histórico nunca exibe `0 presenças`.** Exibe **"Novo por aqui"**, em tom neutro, ao lado do selo de perfil completo. Reputação sem rampa de entrada tranca o novato para sempre: não é chamado porque não tem histórico, e não tem histórico porque não é chamado. Ver §16.6 da especificação.
-8. **Contato nunca aparece em página pública.** `contactPhone` não faz parte do payload público de `JobPost`. O telefone do trabalhador só é servido à empresa daquela vaga, e só com candidatura ativa. Sem isso não há candidatura, não há dado, não há produto — e a vaga vira alvo fácil de raspagem. Ver §16.5.
-9. **Só a empresa inicia o contato.** O trabalhador nunca recebe o telefone da empresa e não tem botão de contato em lugar nenhum. E o número **nunca** é exibido como texto na interface — sempre atrás de um botão que abre o WhatsApp, dos dois lados. Número escrito na tela é número colado no grupo. Ver §16.5.
-10. **Não marcar significa `not_selected`, nunca falta.** A marcação de presença tem três saídas: não chamei / compareceu / não compareceu. Só `absent` conta como falta. `not_selected` é neutro, nunca aparece no perfil público e é aplicado automaticamente após 7 dias sem marcação. Ver §16.7.
-11. **Sem chat interno.** As partes trocam contato e conversam pelo WhatsApp.
-12. **Bloqueio de menores de 18 anos** no cadastro (ECA Digital, Lei 15.211/2025).
+7. **Quem não tem histórico nunca exibe `0 presenças`.** Exibe **"Novo por aqui"**, em tom neutro, ao lado do selo de perfil completo. Quem decide isso é o servidor, pelo campo `hasHistory` — a interface nunca interpreta um zero. Ver §16.6 da especificação.
+8. **Telefone nunca aparece em payload público.** O telefone mora em `Account`, não em `Worker` — a view `worker_public_profiles` não alcança essa tabela. O telefone do trabalhador só é servido à empresa dona da vaga, por `GET /v1/applications/:id/contact`, e o ato de pedir é o ato de escolher (`contactedAt`). Ver §16.5.
+9. **Só a empresa inicia o contato.** O trabalhador nunca recebe o telefone da empresa e não tem botão de contato em lugar nenhum. E o número **nunca** é exibido como texto na interface — sempre atrás de um botão que abre o WhatsApp. Número escrito na tela é número colado no grupo. Ver §16.5.
+10. **Não marcar significa `not_selected`, nunca falta.** Três saídas: não chamei / compareceu / não compareceu. Só `absent` conta como falta. `not_selected` é neutro, nunca aparece no perfil público e é aplicado automaticamente após 7 dias. Ver §16.7.
+11. **Contestação não apaga a marcação.** `status` guarda o que a empresa marcou; a contestação vive em `disputedAt` / `disputeResolvedAt` / `disputeOutcome`. Ver §7.4.
+12. **Sem chat interno.** As partes trocam contato e conversam pelo WhatsApp.
+13. **Bloqueio de menores de 18 anos** no cadastro (ECA Digital, Lei 15.211/2025). Validado no zod **e** por trigger no banco.
+14. **Não guardamos dado sem leitor.** Não existe endereço do trabalhador (só cidade e bairro), não existem referências pessoais. Campo declarado pela própria pessoa nunca vira garantia — só informação. Antes de coletar qualquer dado novo: quem lê, e o que ele prova?
 
 ### Vocabulário proibido na interface
 
@@ -53,6 +61,18 @@ Validar no schema zod compartilhado — vale para o formulário **e** para a rot
 
 ---
 
+## Princípios de produto
+
+Não são regras jurídicas, são o que decide discussão de design.
+
+- **Abandono silencioso é o custo mais alto.** Push irrelevante e vaga sem candidato são o mesmo erro com dois nomes: fazem alguém concluir que a plataforma não serve. Quem conclui isso não reclama — some. Por isso **todo padrão nasce no ajuste mais aberto**: alcance da vaga em `unrestricted`, raio de vizinhança desligado, falha de verificação de telefone nunca trava o cadastro.
+- **A permissão de notificar é o recurso mais escasso.** Desligar notificação no Android é definitivo na prática. Nada entra no push sem opt-in explícito, e o push carrega no texto o que a pessoa precisa para decidir sem abrir o app (distância, transporte).
+- **Quem decide é quem tem a informação.** A plataforma exibe fato — distância, transporte, histórico — nunca recomendação, nota ou ordenação com juízo. Teste rápido para qualquer feature nova: ela informa ou ela decide?
+- **Filtro de um lado nunca fura a escolha do outro.** O alcance definido pela empresa só estreita; o opt-in do trabalhador é o teto. E quem assinou aquela cidade na mão sempre recebe.
+- **Mostrar o custo antes da escolha.** "Só Poços: 34 garçons. Até 50 km: 121." "50 km inclui 23 cidades."
+
+---
+
 ## Arquitetura
 
 Monorepo pnpm. Três contêineres em produção, VPS próprio.
@@ -62,9 +82,14 @@ extra/
   apps/
     web/         Next.js 16.3 App Router  → contêiner "web"  :3000
     api/         Node 22 + Fastify        → contêiner "api"  :3333
+      prisma/    schema.prisma + migrations/
   packages/
     shared/      tipos + schemas zod + constantes
-  infra/         docker-compose.yml, Dockerfiles, nginx, backup.sh
+  infra/
+    sql/         constraints.sql — CHECK, triggers, views, FK compostas
+    seed/        cities.csv, load_cities.sh, build_city_neighbors.sql
+    db-setup-local.sh · db-deploy-prod.sh
+    docker-compose.yml, Dockerfiles, nginx, backup.sh
 ```
 
 Postgres e MinIO também em contêiner, sem porta pública. Nginx à frente como proxy reverso e TLS.
@@ -75,7 +100,7 @@ Postgres e MinIO também em contêiner, sem porta pública. Nginx à frente como
 
 ## Stack
 
-Next.js 16.3 (App Router) · TypeScript strict · Tailwind + shadcn/ui · react-hook-form + zod · TanStack Query · Fastify · Prisma · PostgreSQL 17 · MinIO (S3) · Web Push (VAPID) · WhatsApp Cloud API (verificação de telefone) · Resend (e-mail) · Docker Compose · nginx
+Next.js 16.3 (App Router) · TypeScript strict · Tailwind + shadcn/ui · react-hook-form + zod · TanStack Query · Fastify · Prisma · PostgreSQL 17 · MinIO (S3) · Web Push (VAPID) · WhatsApp Cloud API (verificação de telefone) · Resend (e-mail) · Asaas (assinatura da empresa) · Docker Compose · nginx
 
 ---
 
@@ -83,17 +108,20 @@ Next.js 16.3 (App Router) · TypeScript strict · Tailwind + shadcn/ui · react-
 
 Telas primeiro, banco por último — com os contratos definidos antes, para o backend não nascer torto.
 
-| Fase | O quê                                                                         |
-| ---- | ------------------------------------------------------------------------------ |
-| 1    | Tipos e schemas zod em`packages/shared`. **Nenhuma tela antes disto.** |
-| 2    | Camada mock em`apps/web/src/lib/api/` com as assinaturas definitivas         |
-| 3    | Front completo navegável contra o mock — vendável sem uma linha de backend  |
-| 4    | API Fastify cumprindo os mesmos contratos. O front não muda                   |
-| 5    | Prisma e Postgres, schema derivado dos tipos já validados na prática         |
+| Fase | O quê |
+| ---- | ----- |
+| 1 | Tipos e schemas zod em `packages/shared`. **Nenhuma tela antes disto.** |
+| 2 | Camada mock em `apps/web/src/lib/api/` com as assinaturas definitivas |
+| 3 | Front completo navegável contra o mock — vendável sem uma linha de backend |
+| 4 | API Fastify cumprindo os mesmos contratos. O front não muda |
+| 5 | Prisma e Postgres, schema derivado dos tipos já validados na prática |
 
 **Regra de ouro:** nenhum componente importa de `src/mocks/` diretamente. Tudo passa por `src/lib/api/`. Respeitada essa regra, a Fase 4 é troca de implementação, não reescrita.
 
 O mock simula 300–800ms de latência e falha em ~5% das chamadas — os estados de carregamento e erro nascem junto com a tela, em vez de virarem dívida.
+
+> O banco foi modelado antes da Fase 4 porque o motivo daquela ordem — não desenhar banco antes
+> de saber o que as telas precisam — já está satisfeito pelo front rodando contra o mock.
 
 ---
 
@@ -108,7 +136,7 @@ O mock simula 300–800ms de latência e falha em ~5% das chamadas — os estado
 - Sem barrel files (`index.ts` reexportando tudo).
 - Commits convencionais (`feat:`, `fix:`, `chore:`).
 - Segredos só em `.env`. `.env.example` versionado, `.env` nunca.
-
+- **Nunca commitar.** O commit é sempre do desenvolvedor, com script próprio. Faça a alteração e pare.
 ### Orçamento de performance (não é sugestão)
 
 - Bundle JS nas rotas públicas: **< 150 KB** comprimido
@@ -123,16 +151,29 @@ O mock simula 300–800ms de latência e falha em ~5% das chamadas — os estado
 
 Dois bancos distintos. **A confusão entre eles apaga dados reais.**
 
-| Ambiente   | Onde                                   | Comando permitido                                                     |
-| ---------- | -------------------------------------- | --------------------------------------------------------------------- |
-| Local      | contêiner Postgres no WSL, porta 5433 | `prisma migrate dev`                                                |
-| Produção | contêiner no VPS                      | `prisma migrate deploy` — **na mão, com `pg_dump` antes** |
+| Ambiente | Onde | Comando permitido |
+| -------- | ---- | ----------------- |
+| Local | contêiner Postgres no WSL, porta 5433 | `./infra/db-setup-local.sh` |
+| Produção | contêiner no VPS | `./infra/db-deploy-prod.sh` — na mão, e ele faz `pg_dump` antes |
+
+São dois scripts com nomes diferentes de propósito: um script único com flag é um erro de digitação de distância de rodar `migrate dev` contra dado real. Cada um checa a `DATABASE_URL` e se recusa a rodar no ambiente errado.
 
 - **`prisma migrate dev` nunca toca em produção.** Ele reseta o banco quando detecta divergência de schema.
 - `prisma migrate deploy` não reseta: só aplica o que falta.
-- Migração **não** entra em deploy automático.
-- Sem seed automático em produção.
-- Índices desde o início: `job_posts (city, role, status, date)` · `applications (job_post_id, worker_id)` único · `workers (phone)` único · `attendance_records (worker_id, expires_at)`
+- Migração **não** entra em deploy automático, e não roda quando a API sobe.
+- Sem seed de aplicação em produção. `cities` é exceção: é dado de referência.
+
+### `constraints.sql` não é opcional
+
+`CHECK`, coluna gerada, índice parcial, trigger, chave estrangeira composta e view **não existem no `schema.prisma`**. Metade das garantias deste modelo vive em `infra/sql/constraints.sql`, que é **idempotente** e precisa ser reaplicado **depois de cada migration** — os scripts acima já fazem isso na ordem certa.
+
+Motivo de não confiar: há relatos do `prisma migrate` gerar `DROP` para índice parcial criado à mão, por não reconhecê-lo. Constraint que some é falha silenciosa — o banco continua aceitando escrita, só parou de proteger. Vale um teste que falhe se alguma constraint sumiu.
+
+E a regra 1 não tem constraint possível, porque é uma **ausência**: a defesa mecânica é um teste no CI que lê o `schema.prisma` e falha se algo com relação a `Worker` ganhar campo monetário.
+
+### Índices que existem desde o início
+
+`job_posts (city_id, status, role, starts_at)` · `job_posts (slug)` por cidade · `job_posts (status, expires_at)` · `applications (job_post_id, worker_id)` único · `accounts (phone)` único · `workers (cpf)` único · `attendance_records (worker_id, marked_at)` · `worker_roles (role, worker_id)` · `worker_availability (weekday, period, worker_id)` · `worker_notification_cities (city_id, worker_id)`
 
 ---
 
@@ -145,7 +186,7 @@ cd /opt/extra && git pull
 docker compose -f infra/docker-compose.yml up -d --build
 ```
 
-Migração de banco é passo separado e manual, com backup antes.
+Migração de banco é passo separado e manual: `./infra/db-deploy-prod.sh`.
 
 O build do Next.js é pesado: manter 2 GB de swap no VPS.
 
@@ -153,10 +194,13 @@ O build do Next.js é pesado: manter 2 GB de swap no VPS.
 
 ## Dados sensíveis
 
-- `cpf` e `birthDate` **nunca** aparecem em resposta pública. `WorkerPublicProfile` existe exatamente para isso — use-o em toda rota que a empresa consome.
+- Telefone mora em `Account`. `Worker` não tem campo de telefone — não se vaza coluna que não existe na tabela.
+- `cpf` e `birthDate` **nunca** aparecem em resposta pública. Toda rota que a empresa consome lê a view `worker_public_profiles`, nunca a tabela `workers` direto.
+- Não existe endereço do trabalhador. Só cidade e bairro. Endereço completo existe apenas na vaga.
 - Selfie com documento vai para bucket **privado** no MinIO, acessível só por URL assinada de curta duração. Nunca é conteúdo público.
-- Vídeo de apresentação é público (é o cartão de visitas do trabalhador).
-- Exclusão de conta remove os objetos do MinIO (obrigação de eliminação da LGPD).
+- Vídeo de apresentação é público (é o cartão de visitas do trabalhador) e **opcional** — é ele que dá o selo de perfil completo.
+- Termo de uso é dado de primeira classe: versão aceita, data e IP.
+- Exclusão de conta é transação com efeito no MinIO, nunca `deleted = true`. Apaga histórico de presença; anonimiza candidaturas; mantém denúncias e ações de moderação. **Não guardar hash de CPF achando que anonimizou** — o espaço de CPF se reverte por força bruta.
 - Upload sempre direto do navegador via URL pré-assinada — o arquivo nunca passa pelo contêiner da API.
 
 ---
@@ -165,7 +209,7 @@ O build do Next.js é pesado: manter 2 GB de swap no VPS.
 
 Não implementar, mesmo que pareça fácil ou útil:
 
-chat interno · estrelas, notas ou comentários · processamento do pagamento do bico · verificação de antecedentes criminais · app nativo · painel de analytics elaborado · múltiplas cidades · internacionalização
+chat interno · estrelas, notas ou comentários · processamento do pagamento do bico · verificação de antecedentes criminais · app nativo · painel de analytics elaborado · internacionalização · raio por GPS ou endereço exato (a distância é entre centros de município) · **qualquer cobrança ligada ao trabalhador**
 
 ---
 
@@ -173,10 +217,12 @@ chat interno · estrelas, notas ou comentários · processamento do pagamento do
 
 - [ ] Nenhum tipo de domínio declarado fora de `packages/shared`
 - [ ] Nenhum import direto de `src/mocks/` em componente
-- [ ] Nenhum telefone de contato em payload ou página pública
+- [ ] Nenhum telefone em payload ou página pública
 - [ ] Trabalhador sem histórico exibindo "Novo por aqui", não "0 presenças"
 - [ ] Toda copy nova conferida contra o vocabulário proibido
 - [ ] Validação existe no schema compartilhado, não só no formulário
+- [ ] Cidade veio da tabela `cities`, nunca de texto digitado
+- [ ] Mexeu no schema? `constraints.sql` foi reaplicado
 - [ ] Estados de carregamento, vazio e erro implementados
 - [ ] Testado em viewport de 360px
 - [ ] Sem `any`, sem `console.log` esquecido, sem segredo no código
@@ -210,3 +256,11 @@ Se algo ficou ambíguo, pergunte em uma linha.
 Uma tarefa por vez, referenciando a seção da especificação. Exemplo:
 
 > implemente a etapa 4 do cadastro do trabalhador conforme §16.1 da especificação, usando os tipos de §7 e a camada de acesso de §8.1
+
+**Prompt fechado rende mais que prompt aberto.** Dizer quais arquivos tocar evita que a tarefa se espalhe. Em qualquer tarefa que mexa com dados, incluir explicitamente: *"não crie camada de dados nova, use `src/lib/api/`"*.
+
+**Escolha do modelo:** Sonnet para tela, Opus para dados, contrato e arquitetura. O Sonnet resolve o pedido literal pelo caminho mais curto — foi assim que nasceu uma camada de dados paralela em `localStorage`, que quebrou a regra de ouro e teve de ser desfeita.
+
+**Este arquivo só é lido no início da sessão.** Mexeu nele, rode `/clear` antes da próxima tarefa, senão a sessão continua com a versão velha.
+
+**Sobre o bloco "Ritmo de trabalho":** ele existe porque a verificação custava dez minutos por tarefa. A única exceção que vale o tempo é mudança em fronteira cliente/servidor — aí um `pnpm build` se paga.

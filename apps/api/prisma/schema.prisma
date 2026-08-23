@@ -1,0 +1,583 @@
+// Extraqui — Prisma schema
+// Derived from ESPECIFICACAO-TECNICA-v2_3.md §7 and the inviolable rules in CLAUDE.md.
+//
+// IMPORTANT: this file is only half of the model. CHECK constraints, composite foreign keys,
+// partial indexes, triggers and views are NOT expressible in Prisma and live in
+// infra/sql/constraints.sql, which must be re-applied after every migration. See §10.1.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+//
+// WorkerStatus deliberately has no `banned` / `blocked` value: rule 3 says we never punish a
+// worker, and a missing enum value cannot be set by a careless UPDATE or a misread task.
+// Adding one would be a visible, reviewable schema change.
+// ---------------------------------------------------------------------------
+
+enum WorkerStatus {
+  incomplete
+  complete
+  self_deactivated
+}
+
+enum AvailabilityPeriod {
+  morning
+  afternoon
+  night
+}
+
+enum JobRole {
+  garcom
+  cozinheiro
+  auxiliar_cozinha
+  auxiliar_limpeza
+  diarista
+  barman
+  seguranca
+  recepcionista
+  montagem_evento
+  motorista
+  outro
+}
+
+enum JobStatus {
+  open
+  filled
+  expired
+  cancelled
+}
+
+// How far the ad reaches. It can only NARROW what the worker already opted into — never widen
+// it. The worker's own subscription is the ceiling, which is why this field needs no cap.
+enum JobReach {
+  unrestricted // default: everyone who already accepted notifications for that city
+  nearby // the job's city plus reachRadiusKm
+  city_only // only workers who live in the job's city
+}
+
+enum ApplicationStatus {
+  applied
+  confirmed
+  withdrawn
+  no_response
+}
+
+// Only what the company marked. A dispute is a separate dimension (see AttendanceRecord),
+// otherwise disputing an absence would destroy the original marking.
+enum AttendanceStatus {
+  pending
+  not_selected
+  present
+  absent
+}
+
+enum DisputeOutcome {
+  upheld
+  reversed
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  suspended
+  cancelled
+}
+
+// 'cpf' is accepted by the type but rejected by validation until v2.0 (§21).
+enum ContractorDocumentType {
+  cnpj
+  cpf
+}
+
+enum ReportReason {
+  discriminatory_content
+  fake_job
+  fake_profile
+  offensive_content
+  other
+}
+
+enum ModerationActionType {
+  dismissed
+  content_removed
+  account_deactivated
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+// The phone lives here and nowhere else. Worker has no phone column at all, so the public
+// profile query physically cannot leak it (rule 8).
+model Account {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  phone           String    @unique @db.VarChar(20) // E.164
+  phoneVerifiedAt DateTime? @map("phone_verified_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  worker  Worker?
+  company Company?
+
+  @@map("accounts")
+}
+
+// ---------------------------------------------------------------------------
+// Reference data
+// ---------------------------------------------------------------------------
+
+// Seeded once from the IBGE municipality list (infra/seed/cities.csv). Reference data, so it
+// is loaded in production too — unlike application seed, which never runs there.
+// lat/lng are unused in the MVP; they are here so "cities within X km" is a query later
+// instead of a project.
+model City {
+  id   String  @id @db.Char(7) // IBGE code
+  name String  @db.VarChar(120)
+  uf   String  @db.Char(2)
+  slug String  @unique @db.VarChar(140) // includes UF: municipality names repeat across states
+  lat  Decimal @db.Decimal(9, 6)
+  lng  Decimal @db.Decimal(9, 6)
+
+  workers                 Worker[]
+  companies               Company[]
+  jobPosts                JobPost[]
+  notificationSubscribers WorkerNotificationCity[]
+  neighbors               CityNeighbor[]          @relation("city_to_neighbor")
+  neighborOf              CityNeighbor[]          @relation("neighbor_to_city")
+
+  @@index([uf, name])
+  @@map("cities")
+}
+
+// Precomputed distances between municipality centres, pairs up to 100 km only.
+// Built once from cities.lat/lng by infra/seed/build_city_neighbors.sql.
+//
+// Why a table instead of earthdistance/PostGIS: this sits in the hottest query in the product
+// (§16.2, 60-second target). A precomputed join with an index beats a geometric predicate, and
+// it keeps the container free of an extension dependency. Municipalities do not move — what
+// never changes should be computed once.
+//
+// The pair (X, X) with distance 0 is included on purpose, so a worker's own city falls inside
+// any radius without a special case in the query.
+model CityNeighbor {
+  cityId         String @map("city_id") @db.Char(7)
+  neighborCityId String @map("neighbor_city_id") @db.Char(7)
+  distanceKm     Int    @map("distance_km") @db.SmallInt
+
+  city     City @relation("city_to_neighbor", fields: [cityId], references: [id], onDelete: Cascade)
+  neighbor City @relation("neighbor_to_city", fields: [neighborCityId], references: [id], onDelete: Cascade)
+
+  @@id([cityId, neighborCityId])
+  @@index([cityId, distanceKm, neighborCityId])
+  @@index([neighborCityId, distanceKm]) // given a job's city, find who reaches it
+  @@map("city_neighbors")
+}
+
+// ---------------------------------------------------------------------------
+// Worker
+// ---------------------------------------------------------------------------
+
+model Worker {
+  id        String @id @default(uuid(7)) @db.Uuid
+  accountId String @unique @map("account_id") @db.Uuid
+
+  // Stored split, not as a single fullName: the public profile shows firstName plus the
+  // initial of lastName, and splitting a single string breaks on "Maria de Souza".
+  firstName String @map("first_name") @db.VarChar(80)
+  lastName  String @map("last_name") @db.VarChar(120)
+
+  // Never returned by any company-facing route. Reads go through the worker_public_profiles
+  // view (constraints.sql), which does not select these columns.
+  cpf       String   @unique @db.Char(11)
+  birthDate DateTime @map("birth_date") @db.Date
+
+  cityId       String @map("city_id") @db.Char(7)
+  neighborhood String @db.VarChar(120)
+
+  // Optional radius around cityId — 25 or 50, or null when off. Anchored on the home city
+  // only, never on each of the five subscribed cities: five cities times a 50 km radius would
+  // be half a state, and the cap of five exists precisely to protect push permission.
+  nearbyRadiusKm Int? @map("nearby_radius_km") @db.SmallInt
+
+  experience        String  @db.Text
+  documentSelfieKey String? @map("document_selfie_key") @db.VarChar(255) // private bucket
+  introVideoKey     String? @map("intro_video_key") @db.VarChar(255) // public bucket, optional
+
+  status WorkerStatus @default(incomplete)
+
+  // Proof of consent. A new terms version means a new acceptance.
+  termsVersion    String   @map("terms_version") @db.VarChar(20)
+  termsAcceptedAt DateTime @map("terms_accepted_at") @db.Timestamptz(3)
+  termsAcceptedIp String   @map("terms_accepted_ip") @db.Inet
+
+  profileCompletedAt DateTime? @map("profile_completed_at") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account            Account                  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  city               City                     @relation(fields: [cityId], references: [id])
+  roles              WorkerRole[]
+  availability       WorkerAvailability[]
+  notificationCities WorkerNotificationCity[]
+  applications       Application[]
+  attendanceRecords  AttendanceRecord[]
+  pushSubscriptions  PushSubscription[]
+  reports            Report[]
+
+  @@index([cityId, status])
+  @@map("workers")
+}
+
+// Child table, not an enum array: this is one of the two joins in the routing query, and a
+// composite primary key kills duplicates for free.
+model WorkerRole {
+  workerId String  @map("worker_id") @db.Uuid
+  role     JobRole
+
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@id([workerId, role])
+  @@index([role, workerId])
+  @@map("worker_roles")
+}
+
+model WorkerAvailability {
+  workerId String             @map("worker_id") @db.Uuid
+  weekday  Int                @db.SmallInt // 0 = Sunday
+  period   AvailabilityPeriod
+
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@id([workerId, weekday, period])
+  @@index([weekday, period, workerId])
+  @@map("worker_availability")
+}
+
+// Which cities this worker wants to be notified about. 1 to 5.
+// This — not workers.cityId — is what the routing job reads. Home city is profile data;
+// this is intent. Browsing and applying are not restricted by it (§16.2).
+model WorkerNotificationCity {
+  workerId  String   @map("worker_id") @db.Uuid
+  cityId    String   @map("city_id") @db.Char(7)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  city   City   @relation(fields: [cityId], references: [id])
+
+  @@id([workerId, cityId])
+  @@index([cityId, workerId]) // hot path: given a new job's city, find subscribers
+  @@map("worker_notification_cities")
+}
+
+// ---------------------------------------------------------------------------
+// Company
+// ---------------------------------------------------------------------------
+
+model Company {
+  id        String @id @default(uuid(7)) @db.Uuid
+  accountId String @unique @map("account_id") @db.Uuid
+
+  // Named `document`, not `cnpj`: v2.0 accepts individual contractors (§21). Renaming later,
+  // with companies already registered, costs a data migration and touches every validation.
+  documentType ContractorDocumentType @default(cnpj) @map("document_type")
+  document     String                 @unique @db.VarChar(14)
+
+  legalName       String @map("legal_name") @db.VarChar(200)
+  tradeName       String @map("trade_name") @db.VarChar(200)
+  responsibleName String @map("responsible_name") @db.VarChar(160)
+  email           String @db.VarChar(160)
+  cityId          String @map("city_id") @db.Char(7)
+
+  subscriptionStatus SubscriptionStatus @default(trialing) @map("subscription_status")
+  gatewayCustomerId  String?            @unique @map("gateway_customer_id") @db.VarChar(64)
+  trialEndsAt        DateTime?          @map("trial_ends_at") @db.Timestamptz(3)
+  subscriptionEndsAt DateTime?          @map("subscription_ends_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account           Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  city              City                @relation(fields: [cityId], references: [id])
+  jobPosts          JobPost[]
+  attendanceRecords AttendanceRecord[]
+  blockedAttempts   BlockedJobAttempt[]
+  billingEvents     BillingEvent[]
+
+  @@index([subscriptionStatus])
+  @@map("companies")
+}
+
+// ---------------------------------------------------------------------------
+// Jobs
+// ---------------------------------------------------------------------------
+
+model JobPost {
+  id        String @id @default(uuid(7)) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  cityId    String @map("city_id") @db.Char(7)
+  slug      String @db.VarChar(160)
+
+  role        JobRole
+  title       String  @db.VarChar(160)
+  description String  @db.Text
+
+  // Single instants, not date + start + end: a party that starts at 22:00 and ends at 02:00
+  // makes separate fields produce negative durations and expire on the wrong day.
+  startsAt DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt   DateTime @map("ends_at") @db.Timestamptz(3)
+
+  // Informational only. Never processed. Decimal, not float: 149.99999 on a worker's screen
+  // destroys trust at the worst possible moment.
+  payAmount Decimal @map("pay_amount") @db.Decimal(10, 2)
+  payNote   String? @map("pay_note") @db.VarChar(160)
+
+  address      String  @db.VarChar(200)
+  neighborhood String  @db.VarChar(120)
+  requirements String? @db.Text
+
+  // The fact that makes a job in a neighbouring city worth the trip.
+  providesTransport Boolean @default(false) @map("provides_transport")
+
+  // Defaults to the widest setting on purpose. A town of ten thousand cannot fill six waiter
+  // slots for a festival on its own; a contractor in a capital, one day, will not want people
+  // two hours away. Both are real — but a restrictive default kills jobs silently: the company
+  // ticks "my city only" out of caution, nobody applies, and it concludes the site does not
+  // work without ever learning why.
+  reach         JobReach @default(unrestricted)
+  reachRadiusKm Int?     @map("reach_radius_km") @db.SmallInt // only when reach = nearby
+
+  vacancies Int @db.SmallInt
+
+  // Denormalised on purpose: the cap is enforced by a CHECK on this column inside the same
+  // transaction as the INSERT, which is what makes two simultaneous applications on the last
+  // slot resolve correctly. In application code that race needs an explicit lock nobody
+  // remembers to write. maxApplications is NOT stored — it is vacancies * 3.
+  applicationsCount Int @default(0) @map("applications_count")
+
+  status        JobStatus @default(open)
+  isHighlighted Boolean   @default(false) @map("is_highlighted")
+  publishedAt   DateTime  @default(now()) @map("published_at") @db.Timestamptz(3)
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(3)
+
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  city              City               @relation(fields: [cityId], references: [id])
+  applications      Application[]
+  attendanceRecords AttendanceRecord[]
+  reports           Report[]
+
+  @@unique([cityId, slug]) // the URL is /vagas/[cidade]/[slug]
+  @@unique([id, companyId]) // supports the composite FK in constraints.sql
+  @@index([cityId, status, role, startsAt])
+  @@index([status, expiresAt]) // expiry cron
+  @@index([companyId, publishedAt])
+  @@map("job_posts")
+}
+
+// ---------------------------------------------------------------------------
+// Applications and attendance
+// ---------------------------------------------------------------------------
+
+model Application {
+  id        String @id @default(uuid(7)) @db.Uuid
+  jobPostId String @map("job_post_id") @db.Uuid
+
+  // Nullable so account deletion can anonymise instead of destroying the company's own
+  // operational history (§13.1). Postgres treats NULLs as distinct, so several anonymised
+  // rows on the same job do not collide with the unique below.
+  workerId String? @map("worker_id") @db.Uuid
+
+  // 4 characters, unique WITHIN the job, not globally: it exists to match the WhatsApp
+  // conversation to the application, and the message already carries the job.
+  shortCode String @map("short_code") @db.Char(4)
+
+  status      ApplicationStatus @default(applied)
+  appliedAt   DateTime          @default(now()) @map("applied_at") @db.Timestamptz(3)
+  contactedAt DateTime?         @map("contacted_at") @db.Timestamptz(3) // the company chose this person
+  confirmedAt DateTime?         @map("confirmed_at") @db.Timestamptz(3)
+
+  jobPost    JobPost           @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  worker     Worker?           @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  attendance AttendanceRecord?
+
+  @@unique([jobPostId, workerId])
+  @@unique([jobPostId, shortCode])
+  @@unique([id, workerId]) // supports the composite FK in constraints.sql
+  @@unique([id, jobPostId]) // idem
+  @@index([workerId, appliedAt])
+  @@map("applications")
+}
+
+// No free-text column. Not one. That absence is rule 5, and it is the single design choice
+// that keeps this table from producing defamation claims.
+model AttendanceRecord {
+  id            String @id @default(uuid(7)) @db.Uuid
+  applicationId String @unique @map("application_id") @db.Uuid
+
+  // Denormalised for the reading queries. They cannot drift: composite foreign keys in
+  // constraints.sql tie them back to the originating application and job.
+  workerId  String @map("worker_id") @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  jobPostId String @map("job_post_id") @db.Uuid
+
+  status   AttendanceStatus @default(pending)
+  markedAt DateTime?        @map("marked_at") @db.Timestamptz(3)
+
+  // Dispute is a second dimension, not a status value: the original marking must survive it.
+  // "under dispute" = disputedAt IS NOT NULL AND disputeResolvedAt IS NULL.
+  disputedAt        DateTime?       @map("disputed_at") @db.Timestamptz(3)
+  disputeResolvedAt DateTime?       @map("dispute_resolved_at") @db.Timestamptz(3)
+  disputeOutcome    DisputeOutcome? @map("dispute_outcome")
+
+  // No expiresAt: it is markedAt + 12 months, computed on read. A stored copy would be a
+  // second source of truth for a value derived from a constant.
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  worker      Worker      @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobPost     JobPost     @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+
+  @@index([workerId, markedAt]) // public history: last 12 months
+  @@index([companyId, status]) // pending markings in the company panel
+  @@map("attendance_records")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications and auth
+// ---------------------------------------------------------------------------
+
+model PushSubscription {
+  id       String @id @default(uuid(7)) @db.Uuid
+  workerId String @map("worker_id") @db.Uuid
+
+  endpoint String @unique @db.Text
+
+  // JSONB on purpose: opaque browser payload, handed whole to the web-push library and never
+  // filtered on. The rule: JSONB for third-party payloads you never query into.
+  subscription Json @db.JsonB
+
+  failureCount  Int       @default(0) @map("failure_count")
+  lastSuccessAt DateTime? @map("last_success_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([workerId])
+  @@map("push_subscriptions")
+}
+
+model PhoneVerificationCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  phone     String    @db.VarChar(20)
+  codeHash  String    @map("code_hash") @db.VarChar(64) // hashed: a dump of live codes is mass account takeover
+  attempts  Int       @default(0)
+  requestIp String?   @map("request_ip") @db.Inet
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([phone, createdAt]) // rate limit: 3 per phone per hour
+  @@map("phone_verification_codes")
+}
+
+model WhatsappEvent {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  payload     Json      @db.JsonB // raw Meta payload, kept for audit
+  signatureOk Boolean   @map("signature_ok")
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(3)
+  receivedAt  DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  @@index([receivedAt])
+  @@map("whatsapp_events")
+}
+
+// ---------------------------------------------------------------------------
+// Billing — references Company only. Never Worker. See §2 and §20.
+// ---------------------------------------------------------------------------
+
+model BillingEvent {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  companyId   String?   @map("company_id") @db.Uuid
+  externalId  String    @unique @map("external_id") @db.VarChar(120) // gateway event id: idempotency
+  eventType   String    @map("event_type") @db.VarChar(80)
+  payload     Json      @db.JsonB
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(3)
+  receivedAt  DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, receivedAt])
+  @@map("billing_events")
+}
+
+// ---------------------------------------------------------------------------
+// Moderation and compliance
+// ---------------------------------------------------------------------------
+
+// Evidence of diligence (§14.1). About companies, not workers — survives worker deletion.
+model BlockedJobAttempt {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  companyId    String   @map("company_id") @db.Uuid
+  title        String   @db.VarChar(160)
+  description  String   @db.Text
+  requirements String?  @db.Text
+  matchedTerms String[] @map("matched_terms")
+  requestIp    String?  @map("request_ip") @db.Inet
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@map("blocked_job_attempts")
+}
+
+// Two nullable FKs plus a CHECK (constraints.sql) instead of a polymorphic target_type +
+// target_id: the polymorphic version looks tidier and has no referential integrity at all.
+model Report {
+  id                String       @id @default(uuid(7)) @db.Uuid
+  reporterAccountId String?      @map("reporter_account_id") @db.Uuid
+  targetJobPostId   String?      @map("target_job_post_id") @db.Uuid
+  targetWorkerId    String?      @map("target_worker_id") @db.Uuid
+  reason            ReportReason
+  details           String?      @db.Text
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  targetJobPost JobPost?           @relation(fields: [targetJobPostId], references: [id], onDelete: Cascade)
+  targetWorker  Worker?            @relation(fields: [targetWorkerId], references: [id], onDelete: SetNull)
+  actions       ModerationAction[]
+
+  @@index([createdAt])
+  @@map("reports")
+}
+
+model ModerationAction {
+  id         String               @id @default(uuid(7)) @db.Uuid
+  reportId   String               @map("report_id") @db.Uuid
+  action     ModerationActionType
+  actorLabel String               @map("actor_label") @db.VarChar(80)
+  notes      String?              @db.Text
+  decidedAt  DateTime             @default(now()) @map("decided_at") @db.Timestamptz(3)
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("moderation_actions")
+}
+
+// Proof that deletions happen and how fast, with no identifier of any kind.
+// Deliberately no CPF hash: the CPF space is small enough to brute-force, so a hash is
+// pseudonymised personal data, not anonymous data.
+model DeletionLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  subjectKind String   @map("subject_kind") @db.VarChar(20) // 'worker' | 'company'
+  deletedAt   DateTime @default(now()) @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([deletedAt])
+  @@map("deletion_log")
+}

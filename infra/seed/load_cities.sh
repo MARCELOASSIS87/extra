@@ -22,12 +22,19 @@ if [ "$EXISTING" -gt 0 ]; then
   exit 0
 fi
 
-# --- Download once, then commit the files -----------------------------------
+# --- The CSVs must be in the repo. This script never downloads --------------
+# Fetching at runtime would make a production deploy depend on a third-party
+# repository being online at that exact moment. Fetch once, commit, forget.
 
 for f in municipios.csv estados.csv; do
   if [ ! -f "$f" ]; then
-    echo "    baixando $f"
-    curl -fsSL "$BASE_URL/$f" -o "$f"
+    echo "ABORTADO: infra/seed/$f não existe."
+    echo
+    echo "Baixe uma vez e comite — deploy não pode depender de repositório de terceiro:"
+    echo "  curl -fsSL $BASE_URL/municipios.csv -o infra/seed/municipios.csv"
+    echo "  curl -fsSL $BASE_URL/estados.csv    -o infra/seed/estados.csv"
+    echo "  git add infra/seed/*.csv && git commit -m 'chore: seed de municipios do IBGE'"
+    exit 1
   fi
 done
 
