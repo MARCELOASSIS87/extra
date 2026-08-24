@@ -14,9 +14,13 @@ cd "$(dirname "$0")"
 
 : "${DATABASE_URL:?DATABASE_URL não está definida.}"
 
+# libpq refuses Prisma-only query params such as ?schema=public. Inherited from the caller
+# when run by db-setup-local.sh / db-deploy-prod.sh; derived here when run on its own.
+PSQL_URL="${PSQL_URL:-${DATABASE_URL%%\?*}}"
+
 BASE_URL="https://raw.githubusercontent.com/kelvins/municipios-brasileiros/main/csv"
 
-EXISTING=$(psql "$DATABASE_URL" -tAc "SELECT count(*) FROM cities")
+EXISTING=$(psql "$PSQL_URL" -tAc "SELECT count(*) FROM cities")
 if [ "$EXISTING" -gt 0 ]; then
   echo "    cidades já carregadas ($EXISTING) — pulando"
   exit 0
@@ -45,26 +49,38 @@ done
 EXPECTED_MUN="codigo_ibge,nome,latitude,longitude,capital,codigo_uf,siafi_id,ddd,fuso_horario"
 EXPECTED_UF="codigo_uf,uf,nome,latitude,longitude,regiao"
 
-ACTUAL_MUN=$(head -n1 municipios.csv | tr -d '\r')
-ACTUAL_UF=$(head -n1 estados.csv | tr -d '\r')
+# estados.csv ships with a UTF-8 BOM (EF BB BF) before the first column name. Strip it as a
+# PREFIX only — `tr -d` would delete those bytes anywhere in the line, and 0xBF is a valid
+# continuation byte inside accented characters.
+BOM=$'\xEF\xBB\xBF'
 
-if [ "$ACTUAL_MUN" != "$EXPECTED_MUN" ]; then
-  echo "ABORTADO: municipios.csv mudou de formato."
-  echo "  esperado: $EXPECTED_MUN"
-  echo "  veio:     $ACTUAL_MUN"
-  exit 1
-fi
+read_header() {
+  local line
+  line=$(head -n1 "$1" | tr -d '\r')
+  printf '%s' "${line#"$BOM"}"
+}
 
-if [ "$ACTUAL_UF" != "$EXPECTED_UF" ]; then
-  echo "ABORTADO: estados.csv mudou de formato."
-  echo "  esperado: $EXPECTED_UF"
-  echo "  veio:     $ACTUAL_UF"
+# The failure mode this guards against: a BOM does not print, so "expected" and "got" come out
+# looking IDENTICAL on screen while the comparison fails. Always show the byte count too.
+fail_header() {
+  echo "ABORTADO: $1 mudou de formato."
+  echo "  esperado: $2   (${#2} bytes)"
+  echo "  veio:     $3   (${#3} bytes)"
+  echo
+  echo "  Se os dois parecem iguais, a diferença é byte invisível. Confira com:"
+  echo "    head -n1 $1 | xxd | head -3"
   exit 1
-fi
+}
+
+ACTUAL_MUN=$(read_header municipios.csv)
+ACTUAL_UF=$(read_header estados.csv)
+
+[ "$ACTUAL_MUN" = "$EXPECTED_MUN" ] || fail_header municipios.csv "$EXPECTED_MUN" "$ACTUAL_MUN"
+[ "$ACTUAL_UF"  = "$EXPECTED_UF"  ] || fail_header estados.csv    "$EXPECTED_UF"  "$ACTUAL_UF"
 
 # --- Load -------------------------------------------------------------------
 
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+psql "$PSQL_URL" -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
 
 CREATE TEMP TABLE stg_mun (
@@ -117,4 +133,4 @@ JOIN stg_uf  u ON u.codigo_uf = m.codigo_uf;
 COMMIT;
 SQL
 
-psql "$DATABASE_URL" -tAc "SELECT '    ' || count(*) || ' municípios carregados' FROM cities"
+psql "$PSQL_URL" -tAc "SELECT '    ' || count(*) || ' municípios carregados' FROM cities"

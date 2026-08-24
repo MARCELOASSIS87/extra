@@ -26,6 +26,11 @@ PG_CONTAINER="${PG_CONTAINER:-extra-postgres}"
 
 : "${DATABASE_URL:?DATABASE_URL não está definida.}"
 
+# libpq refuses Prisma-only query params such as ?schema=public. Prisma needs them, libpq
+# rejects them — the same URL cannot serve both, so the script adapts.
+PSQL_URL="${DATABASE_URL%%\?*}"
+export PSQL_URL
+
 # --- Safety belt ------------------------------------------------------------
 
 if grep -Eq '@(localhost|127\.0\.0\.1)[:/]' <<<"$DATABASE_URL"; then
@@ -64,15 +69,15 @@ echo "==> 2/3 Aplicando migrations pendentes"
 # --- 3. Constraints ---------------------------------------------------------
 
 echo "==> 3/3 Reaplicando constraints, triggers e views"
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SQL_DIR/constraints.sql"
+psql "$PSQL_URL" -v ON_ERROR_STOP=1 -f "$SQL_DIR/constraints.sql"
 
 # --- Reference data, first run only -----------------------------------------
 
-CITIES=$(psql "$DATABASE_URL" -tAc "SELECT count(*) FROM cities")
+CITIES=$(psql "$PSQL_URL" -tAc "SELECT count(*) FROM cities")
 if [ "$CITIES" -eq 0 ]; then
   echo "==> Primeira execução: carregando municípios e calculando vizinhança"
   "$SEED_DIR/load_cities.sh"
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SEED_DIR/build_city_neighbors.sql"
+  psql "$PSQL_URL" -v ON_ERROR_STOP=1 -f "$SEED_DIR/build_city_neighbors.sql"
 fi
 
 echo

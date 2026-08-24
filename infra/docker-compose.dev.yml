@@ -1,0 +1,30 @@
+# Local development only: just Postgres. No minio, no web, no api — those run on the host
+# during development, and in production they come from infra/docker-compose.yml.
+#
+#     docker compose -f infra/docker-compose.dev.yml up -d
+#
+# Port 5433 on the host, not 5432: it keeps this container from colliding with a Postgres
+# already installed on the machine, and makes a production URL fail fast instead of connecting
+# to the wrong database by accident.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: extra-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: extra
+      POSTGRES_DB: extra
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD em infra/.env}
+    ports:
+      - "5433:5432"
+    volumes:
+      - extra_pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U extra -d extra"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  extra_pgdata_dev:
