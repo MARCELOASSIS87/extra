@@ -14,9 +14,12 @@ import {
   toApplicantProfile,
   withMock,
 } from "./mock";
+import {
+  attendanceExpiresAt,
+  DISPUTE_WINDOW_DAYS,
+  isUnderDispute,
+} from "@extra/shared/lib/attendance";
 import { err, ok } from "./result";
-
-const DISPUTE_WINDOW_DAYS = 7;
 
 /**
  * POST /v1/jobs/:id/attendance — um clique por candidato, sem texto (§16.4).
@@ -60,19 +63,16 @@ export async function markAttendance(
       );
     }
 
-    const markedAt = nowIso();
-    const expires = new Date(markedAt);
-    expires.setUTCFullYear(expires.getUTCFullYear() + 1); // some do perfil em 12 meses
-
     const record: AttendanceRecord = {
       id: randomId(),
       workerId: input.workerId,
       companyId: job.companyId,
       jobPostId: jobId,
       status: input.status,
-      markedAt,
+      markedAt: nowIso(),
       disputedAt: null,
-      expiresAt: expires.toISOString(),
+      disputeResolvedAt: null,
+      disputeOutcome: null,
     };
 
     store.attendanceRecords = [...store.attendanceRecords, record];
@@ -137,15 +137,23 @@ export async function listMyAttendance(): Promise<
     const now = nowIso();
     return ok(
       store.attendanceRecords
-        .filter((item) => item.workerId === workerId && item.expiresAt > now)
-        .sort((a, b) => b.markedAt.localeCompare(a.markedAt)),
+        // Contestado continua aparecendo para o próprio dono: é dele o
+        // registro, e ele precisa ver o que está contestando.
+        .filter(
+          (item) =>
+            item.workerId === workerId &&
+            item.markedAt !== null &&
+            attendanceExpiresAt(item.markedAt) > now,
+        )
+        .sort((a, b) => (b.markedAt ?? "").localeCompare(a.markedAt ?? "")),
     );
   });
 }
 
 /**
  * POST /v1/attendance/:id/dispute — o trabalhador tem 7 dias para contestar.
- * Contestado, o registro sai do perfil público até a resolução (§16.4).
+ * Contestado, o registro sai da contagem pública até a resolução (§16.4) —
+ * sai da CONTAGEM, não do registro: o que a empresa marcou continua lá.
  */
 export async function disputeAttendance(
   id: string,
@@ -157,8 +165,14 @@ export async function disputeAttendance(
     if (record.workerId !== workerId) {
       return err("forbidden", "Este registro é de outra pessoa.");
     }
-    if (record.status === "disputed") {
+    if (isUnderDispute(record)) {
       return err("already_disputed", "Este registro já está em contestação.");
+    }
+    if (record.markedAt === null) {
+      return err(
+        "attendance_not_marked",
+        "Este registro ainda não foi marcado.",
+      );
     }
 
     const deadline = new Date(record.markedAt);
@@ -170,11 +184,9 @@ export async function disputeAttendance(
       );
     }
 
-    const updated: AttendanceRecord = {
-      ...record,
-      status: "disputed",
-      disputedAt: nowIso(),
-    };
+    // A marcação original sobrevive: `status` não muda. O que muda é a
+    // dimensão de contestação, e é ela que tira o registro da conta pública.
+    const updated: AttendanceRecord = { ...record, disputedAt: nowIso() };
     store.attendanceRecords = store.attendanceRecords.map((item) =>
       item.id === id ? updated : item,
     );

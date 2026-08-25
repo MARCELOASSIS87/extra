@@ -10,7 +10,9 @@ const MARKED_LABELS: Record<AttendanceStatus, string> = {
   present: "Você marcou que compareceu.",
   absent: "Você marcou que não compareceu.",
   not_selected: "Você marcou que não chamou esta pessoa.",
-  disputed: "Registro em contestação.",
+  // Contestação deixou de ser status (§7.4): "pending" é o registro que ainda
+  // espera marcação, e para a empresa isso é o mesmo que não ter marcado.
+  pending: "",
 };
 
 /**
@@ -52,7 +54,7 @@ export function AttendanceMarkButtons({
     else setMarked(status);
   };
 
-  if (marked) {
+  if (marked && marked !== "pending") {
     return (
       <p className="text-muted-foreground text-sm">{MARKED_LABELS[marked]}</p>
     );

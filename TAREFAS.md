@@ -4,7 +4,8 @@
 mudou contratos que o front já implementou. **O bloco S é a dívida que isso gerou** e vem
 antes de mostrar qualquer coisa pro sócio. S1 a S5 já foram: cidade é entidade, a vaga
 guarda instantes, as referências saíram do cadastro, as cidades de aviso existem no cadastro,
-no perfil e na listagem, e a publicação mostra o custo de estreitar o alcance. Falta S6 e S7.
+no perfil e na listagem, a publicação mostra o custo de estreitar o alcance e a contestação
+virou dimensão própria, sem apagar a marcação. Falta S7.
 
 Depois do bloco S: o sócio no celular, com roteiro de tarefas. Depois disso, contar os
 anunciantes recorrentes nos grupos e pré-vender cinco assinaturas. As Fases 4 e 5 (API, banco,
@@ -460,7 +461,7 @@ Conforme §7.5 e §16.2 da especificação.
 5. Atualize as fixtures.
 ```
 
-### S6. Contestação deixa de ser status
+### S6. Contestação deixa de ser status ✅
 ```
 Conforme §7.4 da especificação.
 

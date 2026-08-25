@@ -82,15 +82,16 @@ const pluralize = (count: number, singular: string, plural: string) =>
  * Número cru, sem estrela, nota, porcentagem ou cor de julgamento (CLAUDE.md,
  * regra 5). O agregado já chega sem contestados e sem registro com mais de 12
  * meses — quem filtra é `computeAttendanceSummary()` em lib/api/mock.ts, na
- * hora, a partir de `attendanceRecords`. Quem ainda não tem histórico
- * (nenhuma presença nem falta) retorna null para a tela mostrar "Novo por
- * aqui" no lugar, em vez de "0 presenças".
+ * hora, a partir de `attendanceRecords`. Sem histórico retorna null para a
+ * tela mostrar "Novo por aqui" no lugar, em vez de "0 presenças".
  */
 export function formatAttendanceSummary(
   attendance: AttendanceSummary,
 ): string | null {
-  const { present, absent, distinctCompanies } = attendance;
-  if (present === 0 && absent === 0) return null;
+  const { present, absent, distinctCompanies, hasHistory } = attendance;
+  // Quem decide é o servidor, pelo `hasHistory`: a interface nunca lê um zero
+  // e conclui coisa nenhuma (regra 7 do CLAUDE.md).
+  if (!hasHistory) return null;
 
   return [
     pluralize(present, "presença", "presenças"),

@@ -78,7 +78,12 @@ export async function createWorker(
       termsAcceptedAt: nowIso(),
       termsAcceptedIp: MOCK_ACCEPTANCE_IP,
       profileCompletedAt: null,
-      attendance: { present: 0, absent: 0, distinctCompanies: 0 },
+      attendance: {
+        present: 0,
+        absent: 0,
+        distinctCompanies: 0,
+        hasHistory: false,
+      },
       createdAt: nowIso(),
     };
 
@@ -132,7 +137,12 @@ export async function createWorkerQuick(
       termsAcceptedAt: nowIso(),
       termsAcceptedIp: MOCK_ACCEPTANCE_IP,
       profileCompletedAt: null,
-      attendance: { present: 0, absent: 0, distinctCompanies: 0 },
+      attendance: {
+        present: 0,
+        absent: 0,
+        distinctCompanies: 0,
+        hasHistory: false,
+      },
       createdAt: nowIso(),
     };
 

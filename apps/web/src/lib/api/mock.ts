@@ -8,6 +8,7 @@ import type {
 import { companies, workers } from "@/mocks/fixtures";
 import { cityName } from "./cities";
 import { resetStore, store } from "@/mocks/store";
+import { countsInPublicHistory } from "@extra/shared/lib/attendance";
 import { err } from "./result";
 
 // O estado mutável mora em src/mocks/store.ts (fixtures + localStorage).
@@ -176,7 +177,7 @@ function computeAttendanceSummary(workerId: string): AttendanceSummary {
     (record) =>
       record.workerId === workerId &&
       (record.status === "present" || record.status === "absent") &&
-      record.expiresAt > now,
+      countsInPublicHistory(record, now),
   );
 
   return {
@@ -184,6 +185,9 @@ function computeAttendanceSummary(workerId: string): AttendanceSummary {
     absent: countable.filter((record) => record.status === "absent").length,
     distinctCompanies: new Set(countable.map((record) => record.companyId))
       .size,
+    // Quem decide "Novo por aqui" é o servidor, nunca a interface lendo um
+    // zero (§16.6, regra 7 do CLAUDE.md).
+    hasHistory: countable.length > 0,
   };
 }
 

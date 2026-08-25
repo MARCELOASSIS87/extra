@@ -18,6 +18,10 @@ import {
   withdrawApplication,
 } from "./applications";
 import { disputeAttendance, markAttendance } from "./attendance";
+import {
+  attendanceExpiresAt,
+  isUnderDispute,
+} from "@extra/shared/lib/attendance";
 import { createWorker, updateMyWorkerProfile } from "./workers";
 import { createCompany, listMyCompanyJobs } from "./companies";
 import { CURRENT_TERMS_VERSION } from "@extra/shared/constants/terms";
@@ -361,8 +365,13 @@ async function main() {
   );
   assert.equal(record.status, "present");
   assert.equal(record.disputedAt, null);
+  assert.ok(record.markedAt, "marcação carimba markedAt");
+  assert.ok(
+    !("expiresAt" in record),
+    "expiração é markedAt + 12 meses, calculada na leitura — não é coluna",
+  );
   assert.equal(
-    new Date(record.expiresAt).getUTCFullYear() -
+    new Date(attendanceExpiresAt(record.markedAt)).getUTCFullYear() -
       new Date(record.markedAt).getUTCFullYear(),
     1,
     "presença expira em 12 meses",
@@ -377,12 +386,39 @@ async function main() {
     "attendance_already_marked",
   );
 
+  const presentBefore =
+    unwrap(await call(() => listJobCandidates(pastJob.id))).candidates.find(
+      (item) => item.worker.id === currentWorkerId,
+    )?.worker.attendance.present ?? 0;
+
+  // Contestar não apaga a marcação: o status continua sendo o que a empresa
+  // marcou, e é a dimensão de contestação que tira o registro da conta.
   const disputed = unwrap(await call(() => disputeAttendance(record.id)));
-  assert.equal(disputed.status, "disputed");
+  assert.equal(disputed.status, "present", "a marcação original sobrevive");
   assert.notEqual(disputed.disputedAt, null);
+  assert.equal(disputed.disputeResolvedAt, null);
+  assert.equal(isUnderDispute(disputed), true);
   expectError(
     await call(() => disputeAttendance(record.id)),
     "already_disputed",
+  );
+
+  // Item que importa da contestação: ela sai da CONTAGEM pública, não do
+  // registro. E "novo por aqui" é decisão do servidor, não da tela lendo zero.
+  const afterDispute = unwrap(
+    await call(() => listJobCandidates(pastJob.id)),
+  ).candidates.find((item) => item.worker.id === currentWorkerId);
+  assert.ok(afterDispute, "o candidato contestado continua na lista");
+  assert.equal(
+    afterDispute.worker.attendance.present,
+    presentBefore - 1,
+    "contestado sai da contagem pública",
+  );
+  assert.equal(
+    afterDispute.worker.attendance.hasHistory,
+    afterDispute.worker.attendance.present > 0 ||
+      afterDispute.worker.attendance.absent > 0,
+    "hasHistory vem do servidor, não de a tela interpretar um zero",
   );
 
   // Registro antigo das fixtures: o prazo de 7 dias já passou.
