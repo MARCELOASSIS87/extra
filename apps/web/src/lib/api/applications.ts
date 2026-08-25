@@ -17,10 +17,16 @@ import {
   toPublicProfile,
   withMock,
 } from "./mock";
+import { maxApplicationsFor } from "@extra/shared/lib/job";
 import { cityDistanceKm } from "./cities";
 import { err, ok } from "./result";
 
-/** POST /v1/jobs/:id/applications — 409 se atingiu maxApplications (§16.5). */
+/**
+ * POST /v1/jobs/:id/applications — 409 no teto do §16.5. O teto é recalculado
+ * de `vacancies` na hora, e não lido de `job.maxApplications`: se a empresa
+ * mudar o número de vagas, quem manda é a regra, não a cópia que veio no
+ * payload. Quem exibe (job-apply-panel) lê o campo; quem decide, calcula.
+ */
 export async function applyToJob(
   jobId: string,
 ): Promise<ApiResult<Application>> {
@@ -33,7 +39,7 @@ export async function applyToJob(
     if (!job) return err("job_not_found", "Vaga não encontrada.");
     if (job.status !== "open")
       return err("job_not_open", "Esta vaga não está mais aberta.");
-    if (job.applicationsCount >= job.maxApplications) {
+    if (job.applicationsCount >= maxApplicationsFor(job.vacancies)) {
       return err(
         "job_applications_full",
         "Esta vaga já tem candidatos suficientes.",

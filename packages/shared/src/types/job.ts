@@ -61,7 +61,10 @@ export interface JobPost {
   reachRadiusKm: number | null;
   vacancies: number;
   applicationsCount: number; // exibido no card; substitui o contato
-  maxApplications: number; // vacancies * 3 — ver §16.5
+  // Derivado de `vacancies * 3` por `maxApplicationsFor()` (§16.5). Nunca
+  // armazenado e nunca escrito à mão: a API devolve pronto e o cliente só
+  // lê, para a regra não viver duplicada fora de `lib/job.ts`.
+  maxApplications: number;
   status: JobStatus;
   isHighlighted: boolean;
   publishedAt: string;

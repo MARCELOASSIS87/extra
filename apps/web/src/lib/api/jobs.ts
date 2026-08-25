@@ -10,6 +10,7 @@ import {
   type JobPostFormInput,
 } from "@extra/shared/schemas/job";
 import { saoPauloDate } from "@extra/shared/lib/datetime";
+import { maxApplicationsFor } from "@extra/shared/lib/job";
 import { cityDistanceKm, DEFAULT_CITY_ID } from "./cities";
 import { getSessionRole } from "./session";
 import {
@@ -229,7 +230,7 @@ export async function createJob(
       companyId: company.id,
       cityId: company.cityId,
       applicationsCount: 0,
-      maxApplications: data.vacancies * 3,
+      maxApplications: maxApplicationsFor(data.vacancies),
       status: "open",
       isHighlighted: false,
       publishedAt: nowIso(),

@@ -4,6 +4,7 @@ import type { Company } from "@extra/shared/types/company";
 import type { JobPost } from "@extra/shared/types/job";
 import type { Worker } from "@extra/shared/types/worker";
 import { CURRENT_TERMS_VERSION } from "@extra/shared/constants/terms";
+import { maxApplicationsFor } from "@extra/shared/lib/job";
 import { DEFAULT_CITY_ID } from "./cities";
 
 // Dados falsos para a camada mock. As empresas e as vagas são de Poços de
@@ -1869,7 +1870,10 @@ export const workers: Worker[] = [
   },
 ];
 
-export const jobPosts: JobPost[] = [
+// `maxApplications` não é digitado: sai de `maxApplicationsFor()`, a única
+// fonte da regra (§16.5). Fixture com o número na mão é o jeito mais fácil
+// de a regra passar a existir em dois lugares.
+const openJobPosts: Omit<JobPost, "maxApplications">[] = [
   {
     id: "d499c7b2-5217-4eba-abed-df4abba3aaa1",
     slug: "garcom-para-formatura-no-sabado-01",
@@ -1891,7 +1895,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 8,
     applicationsCount: 3,
-    maxApplications: 24,
     status: "open",
     isHighlighted: false,
     publishedAt: "2026-08-13T10:00:00.000Z",
@@ -1918,7 +1921,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 6,
     applicationsCount: 3,
-    maxApplications: 18,
     status: "open",
     isHighlighted: false,
     publishedAt: "2026-08-14T10:13:00.000Z",
@@ -1945,7 +1947,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 2,
     applicationsCount: 3,
-    maxApplications: 6,
     status: "open",
     isHighlighted: true,
     publishedAt: "2026-08-15T10:26:00.000Z",
@@ -1972,7 +1973,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 3,
     applicationsCount: 3,
-    maxApplications: 9,
     status: "open",
     isHighlighted: false,
     publishedAt: "2026-08-16T10:39:00.000Z",
@@ -1999,7 +1999,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 4,
     applicationsCount: 3,
-    maxApplications: 12,
     status: "open",
     isHighlighted: false,
     publishedAt: "2026-08-17T10:52:00.000Z",
@@ -2026,7 +2025,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 2,
     applicationsCount: 3,
-    maxApplications: 6,
     status: "open",
     isHighlighted: false,
     publishedAt: "2026-08-18T10:05:00.000Z",
@@ -2053,7 +2051,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 2,
     applicationsCount: 3,
-    maxApplications: 6,
     status: "open",
     isHighlighted: false,
     publishedAt: "2026-08-19T10:18:00.000Z",
@@ -2080,7 +2077,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: 50,
     vacancies: 4,
     applicationsCount: 3,
-    maxApplications: 12,
     status: "open",
     isHighlighted: false,
     publishedAt: "2026-08-20T10:31:00.000Z",
@@ -2107,7 +2103,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 6,
     applicationsCount: 3,
-    maxApplications: 18,
     status: "open",
     isHighlighted: true,
     publishedAt: "2026-08-21T10:44:00.000Z",
@@ -2134,7 +2129,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 10,
     applicationsCount: 3,
-    maxApplications: 30,
     status: "open",
     isHighlighted: false,
     publishedAt: "2026-08-31T10:57:00.000Z",
@@ -2161,7 +2155,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 1,
     applicationsCount: 3,
-    maxApplications: 3,
     status: "open",
     isHighlighted: false,
     publishedAt: "2026-09-01T10:10:00.000Z",
@@ -2188,7 +2181,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 8,
     applicationsCount: 2,
-    maxApplications: 24,
     status: "open",
     isHighlighted: false,
     publishedAt: "2026-09-02T10:23:00.000Z",
@@ -2215,7 +2207,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 2,
     applicationsCount: 4,
-    maxApplications: 6,
     status: "filled",
     isHighlighted: false,
     publishedAt: "2026-07-22T10:36:00.000Z",
@@ -2241,7 +2232,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 2,
     applicationsCount: 4,
-    maxApplications: 6,
     status: "filled",
     isHighlighted: false,
     publishedAt: "2026-07-20T10:49:00.000Z",
@@ -2268,7 +2258,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 12,
     applicationsCount: 11,
-    maxApplications: 36,
     status: "filled",
     isHighlighted: true,
     publishedAt: "2026-07-18T10:02:00.000Z",
@@ -2295,7 +2284,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 3,
     applicationsCount: 5,
-    maxApplications: 9,
     status: "filled",
     isHighlighted: false,
     publishedAt: "2026-07-16T10:15:00.000Z",
@@ -2322,7 +2310,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 2,
     applicationsCount: 4,
-    maxApplications: 6,
     status: "filled",
     isHighlighted: false,
     publishedAt: "2026-07-14T10:28:00.000Z",
@@ -2349,7 +2336,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: 25,
     vacancies: 6,
     applicationsCount: 1,
-    maxApplications: 18,
     status: "filled",
     isHighlighted: false,
     publishedAt: "2026-07-12T10:41:00.000Z",
@@ -2376,7 +2362,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 3,
     applicationsCount: 2,
-    maxApplications: 9,
     status: "expired",
     isHighlighted: false,
     publishedAt: "2026-06-05T10:54:00.000Z",
@@ -2403,7 +2388,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 4,
     applicationsCount: 3,
-    maxApplications: 12,
     status: "expired",
     isHighlighted: false,
     publishedAt: "2026-06-02T10:07:00.000Z",
@@ -2430,7 +2414,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 8,
     applicationsCount: 4,
-    maxApplications: 24,
     status: "expired",
     isHighlighted: true,
     publishedAt: "2026-05-30T10:20:00.000Z",
@@ -2456,7 +2439,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 1,
     applicationsCount: 1,
-    maxApplications: 3,
     status: "expired",
     isHighlighted: false,
     publishedAt: "2026-05-27T10:33:00.000Z",
@@ -2483,7 +2465,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 2,
     applicationsCount: 3,
-    maxApplications: 6,
     status: "expired",
     isHighlighted: false,
     publishedAt: "2026-05-24T10:46:00.000Z",
@@ -2510,7 +2491,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 6,
     applicationsCount: 2,
-    maxApplications: 18,
     status: "cancelled",
     isHighlighted: false,
     publishedAt: "2026-07-04T10:59:00.000Z",
@@ -2536,7 +2516,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 4,
     applicationsCount: 1,
-    maxApplications: 12,
     status: "cancelled",
     isHighlighted: false,
     publishedAt: "2026-09-09T10:12:00.000Z",
@@ -2565,7 +2544,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 3,
     applicationsCount: 3,
-    maxApplications: 9,
     status: "filled",
     isHighlighted: false,
     publishedAt: "2026-08-04T10:00:00.000Z",
@@ -2592,7 +2570,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 2,
     applicationsCount: 3,
-    maxApplications: 6,
     status: "filled",
     isHighlighted: false,
     publishedAt: "2026-08-06T10:00:00.000Z",
@@ -2619,7 +2596,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: 50,
     vacancies: 4,
     applicationsCount: 2,
-    maxApplications: 12,
     status: "expired",
     isHighlighted: false,
     publishedAt: "2026-08-08T10:00:00.000Z",
@@ -2646,7 +2622,6 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 2,
     applicationsCount: 2,
-    maxApplications: 6,
     status: "filled",
     isHighlighted: false,
     publishedAt: "2026-08-11T10:00:00.000Z",
@@ -2673,13 +2648,17 @@ export const jobPosts: JobPost[] = [
     reachRadiusKm: null,
     vacancies: 1,
     applicationsCount: 2,
-    maxApplications: 3,
     status: "filled",
     isHighlighted: false,
     publishedAt: "2026-08-13T10:00:00.000Z",
     expiresAt: "2026-08-18T17:00:00.000Z",
   },
 ];
+
+export const jobPosts: JobPost[] = openJobPosts.map((job) => ({
+  ...job,
+  maxApplications: maxApplicationsFor(job.vacancies),
+}));
 
 // AttendanceSummary de cada trabalhador é o agregado dos últimos 12 meses e
 // não deriva só das vagas abaixo — estas são apenas as recentes.
