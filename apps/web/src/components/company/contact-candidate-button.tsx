@@ -5,6 +5,7 @@ import { Check, MessageCircle } from "lucide-react";
 import type { JobPost } from "@extra/shared/types/job";
 import { markApplicationContacted } from "@/lib/api/applications";
 import { buttonVariants } from "@/components/ui/button";
+import { saoPauloTime } from "@extra/shared/lib/datetime";
 import { formatJobWeekdayAndDate, formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -18,11 +19,11 @@ function buildMessage(
   companyName: string,
   shortCode: string,
 ) {
-  const { weekday, shortDate } = formatJobWeekdayAndDate(job.date);
+  const { weekday, shortDate } = formatJobWeekdayAndDate(job.startsAt);
 
   return [
     `Oi ${workerFirstName}! Aqui é ${companyName}.`,
-    `Vi sua candidatura para ${job.title}, ${weekday} ${shortDate} às ${job.startTime} — ${formatMoney(job.payAmount)}.`,
+    `Vi sua candidatura para ${job.title}, ${weekday} ${shortDate} às ${saoPauloTime(job.startsAt)} — ${formatMoney(job.payAmount)}.`,
     `Código: ${shortCode}`,
     `— via extraqui.com.br`,
   ].join("\n");

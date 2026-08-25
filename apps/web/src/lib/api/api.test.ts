@@ -13,6 +13,7 @@ import {
 import { disputeAttendance, markAttendance } from "./attendance";
 import { createWorker, updateMyWorkerProfile } from "./workers";
 import { createCompany, listMyCompanyJobs } from "./companies";
+import { CURRENT_TERMS_VERSION } from "@extra/shared/constants/terms";
 import { getCurrentCompanyId, getCurrentWorkerId, store } from "./mock";
 
 // A camada falha de propósito em ~5% das chamadas; o teste repete só nesse caso.
@@ -204,9 +205,9 @@ async function main() {
   expectError(await call(() => applyToJob(created.id)), "job_not_open");
 
   // --- presença ---------------------------------------------------------------
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date().toISOString();
   const pastJob = store.jobPosts.find(
-    (job) => job.companyId === currentCompanyId && job.date < today,
+    (job) => job.companyId === currentCompanyId && job.endsAt < now,
   );
   assert.ok(pastJob, "fixtures precisam de uma vaga passada da empresa atual");
 
@@ -241,9 +242,9 @@ async function main() {
       jobPostId: pastJob.id,
       workerId: currentWorkerId,
       status: "confirmed",
-      appliedAt: `${pastJob.date}T09:00:00.000Z`,
+      appliedAt: pastJob.publishedAt,
       contactedAt: null,
-      confirmedAt: `${pastJob.date}T18:00:00.000Z`,
+      confirmedAt: pastJob.startsAt,
     },
   ];
   store.attendanceRecords = store.attendanceRecords.filter(
@@ -300,6 +301,11 @@ async function main() {
   }
 
   // --- cadastro ---------------------------------------------------------------
+  // Não existe cadastro sem consentimento registrado.
+  const accepted = {
+    termsVersion: CURRENT_TERMS_VERSION,
+    termsAccepted: true,
+  };
   const underage = new Date();
   underage.setUTCFullYear(underage.getUTCFullYear() - 16);
   expectError(
@@ -308,6 +314,7 @@ async function main() {
         fullName: "Menor de Idade",
         cpf: "111.444.777-35",
         birthDate: underage.toISOString().slice(0, 10),
+        ...accepted,
       }),
     ),
     "validation_error",
@@ -321,16 +328,21 @@ async function main() {
         fullName: "Trabalhador de Teste",
         cpf: "111.444.777-35",
         birthDate: adult.toISOString().slice(0, 10),
+        ...accepted,
       }),
     ),
   );
   assert.equal(newWorker.status, "incomplete");
+  assert.equal(newWorker.termsVersion, CURRENT_TERMS_VERSION);
+  assert.ok(newWorker.termsAcceptedAt !== "", "aceite carimbado no servidor");
+  assert.equal(newWorker.profileCompletedAt, null);
   expectError(
     await call(() =>
       createWorker({
         fullName: "Outro Qualquer",
         cpf: "111.444.777-35",
         birthDate: adult.toISOString().slice(0, 10),
+        ...accepted,
       }),
     ),
     "cpf_already_registered",

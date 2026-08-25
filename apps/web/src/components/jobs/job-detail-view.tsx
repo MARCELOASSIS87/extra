@@ -5,6 +5,7 @@ import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { JobApplyPanel } from "@/components/jobs/job-apply-panel";
 import { ShareJobButton } from "@/components/jobs/share-job-button";
 import { JOB_ROLE_ICONS } from "@/lib/job-role-icons";
+import { cityName } from "@/lib/api/cities";
 import { formatJobDate, formatMoney, formatTimeRange } from "@/lib/format";
 
 /**
@@ -41,18 +42,18 @@ export function JobDetailView({
         <div className="flex items-center gap-2">
           <CalendarDays aria-hidden="true" className="size-4 shrink-0" />
           <dt className="sr-only">Data</dt>
-          <dd className="first-letter:uppercase">{formatJobDate(job.date)}</dd>
+          <dd className="first-letter:uppercase">{formatJobDate(job.startsAt)}</dd>
         </div>
         <div className="flex items-center gap-2">
           <Clock aria-hidden="true" className="size-4 shrink-0" />
           <dt className="sr-only">Horário</dt>
-          <dd>{formatTimeRange(job.startTime, job.endTime)}</dd>
+          <dd>{formatTimeRange(job.startsAt, job.endsAt)}</dd>
         </div>
         <div className="flex items-center gap-2">
           <MapPin aria-hidden="true" className="size-4 shrink-0" />
           <dt className="sr-only">Local</dt>
           <dd>
-            {job.address} — {job.neighborhood}, {job.city}
+            {job.address} — {job.neighborhood}, {cityName(job.cityId)}
           </dd>
         </div>
         <div className="flex items-center gap-2">

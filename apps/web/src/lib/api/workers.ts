@@ -4,13 +4,24 @@ import {
   workerProfileUpdateSchema,
   workerQuickRegistrationSchema,
   workerStep1IdentitySchema,
+  workerTermsAcceptanceSchema,
   type WorkerProfileUpdate,
   type WorkerQuickRegistrationInput,
   type WorkerStep1Identity,
+  type WorkerTermsAcceptance,
 } from "@extra/shared/schemas/worker";
-import { CITY } from "@extra/shared/constants/city";
+import { DEFAULT_CITY_ID } from "./cities";
 import { getCurrentWorkerId, nowIso, randomId, store, withMock } from "./mock";
 import { err, ok } from "./result";
+
+/**
+ * Data e IP do aceite quem carimba é o servidor — o cliente não sabe o próprio
+ * IP e não deveria escolher a hora. No mock não há requisição para ler, então
+ * fica o não-endereço.
+ *
+ * ponytail: literal aqui, `request.ip` do Fastify na Fase 4.
+ */
+const MOCK_ACCEPTANCE_IP = "0.0.0.0";
 
 export async function getMyWorkerProfile(): Promise<ApiResult<Worker | null>> {
   const workerId = await getCurrentWorkerId();
@@ -22,12 +33,19 @@ export async function getMyWorkerProfile(): Promise<ApiResult<Worker | null>> {
 /**
  * POST /v1/workers — etapa 1 do cadastro. O bloqueio de menores de 18 anos
  * mora no schema compartilhado (§14.2), então vale aqui e na rota real.
+ *
+ * O aceite do termo vem junto porque é ele que autoriza a existência do
+ * cadastro: `termsVersion`, `termsAcceptedAt` e `termsAcceptedIp` não são
+ * anuláveis. Na tela o aceite continua sendo etapa própria (§16.1) — o que
+ * não pode é gravar a pessoa antes de ela consentir.
  */
 export async function createWorker(
-  input: WorkerStep1Identity,
+  input: WorkerStep1Identity & WorkerTermsAcceptance,
 ): Promise<ApiResult<Worker>> {
   return withMock(() => {
-    const parsed = workerStep1IdentitySchema.safeParse(input);
+    const parsed = workerStep1IdentitySchema
+      .extend(workerTermsAcceptanceSchema.shape)
+      .safeParse(input);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
       return err("validation_error", issue.message, issue.path.join("."));
@@ -44,15 +62,22 @@ export async function createWorker(
       phoneVerifiedAt: null,
       cpf: parsed.data.cpf,
       birthDate: parsed.data.birthDate,
-      city: CITY,
+      cityId: DEFAULT_CITY_ID,
       neighborhood: "",
+      // Nasce assinando a própria cidade e com o raio desligado: o padrão mais
+      // aberto que não gasta a permissão de notificar. A escolha é da S4.
+      notificationCityIds: [DEFAULT_CITY_ID],
+      nearbyRadiusKm: null,
       roles: [],
       experience: "",
       availability: [],
       documentSelfieKey: null,
       introVideoKey: null,
-      references: [],
       status: "incomplete",
+      termsVersion: parsed.data.termsVersion,
+      termsAcceptedAt: nowIso(),
+      termsAcceptedIp: MOCK_ACCEPTANCE_IP,
+      profileCompletedAt: null,
       attendance: { present: 0, absent: 0, distinctCompanies: 0 },
       createdAt: nowIso(),
     };
@@ -93,15 +118,20 @@ export async function createWorkerQuick(
       phoneVerifiedAt: null,
       cpf: "",
       birthDate: parsed.data.birthDate,
-      city: CITY,
+      cityId: DEFAULT_CITY_ID,
       neighborhood: parsed.data.neighborhood,
+      notificationCityIds: [DEFAULT_CITY_ID],
+      nearbyRadiusKm: null,
       roles: parsed.data.roles,
       experience: "",
       availability: [],
       documentSelfieKey: null,
       introVideoKey: null,
-      references: [],
       status: "incomplete",
+      termsVersion: parsed.data.termsVersion,
+      termsAcceptedAt: nowIso(),
+      termsAcceptedIp: MOCK_ACCEPTANCE_IP,
+      profileCompletedAt: null,
       attendance: { present: 0, absent: 0, distinctCompanies: 0 },
       createdAt: nowIso(),
     };
@@ -130,26 +160,49 @@ export async function updateMyWorkerProfile(
     const current = store.workers.find((worker) => worker.id === workerId);
     if (!current) return err("worker_not_found", "Cadastro não encontrado.");
 
-    const merged: Worker = { ...current, ...parsed.data };
+    // O aceite não vem do cliente pronto: ele diz "aceito a versão X", e o
+    // servidor é quem carimba quando e de onde.
+    const { termsAccepted, termsVersion, ...profile } = parsed.data;
+    const merged: Worker = {
+      ...current,
+      ...profile,
+      ...(termsAccepted && termsVersion
+        ? {
+            termsVersion,
+            termsAcceptedAt: nowIso(),
+            termsAcceptedIp: MOCK_ACCEPTANCE_IP,
+          }
+        : {}),
+    };
+
+    // Cadastro concluído: recebe vaga e se candidata. O vídeo NÃO entra —
+    // quem não grava conclui do mesmo jeito (§16.1).
     const complete =
       merged.phone !== "" &&
       merged.documentSelfieKey !== null &&
       merged.roles.length > 0 &&
       merged.availability.length > 0 &&
-      merged.neighborhood !== "" &&
-      merged.introVideoKey !== null &&
-      merged.references.length === 2;
+      merged.neighborhood !== "";
 
     // Só o próprio usuário desativa a conta: quem já se desativou não volta a
     // "complete" por um PATCH de perfil (CLAUDE.md, regra 3).
+    const status: Worker["status"] =
+      current.status === "self_deactivated"
+        ? "self_deactivated"
+        : complete
+          ? "complete"
+          : "incomplete";
+
+    // O selo é o vídeo. Uma vez ganho, não se recarimba a cada PATCH; some se
+    // a pessoa apagar o vídeo ou o cadastro deixar de estar concluído.
+    const earnedBadge = status === "complete" && merged.introVideoKey !== null;
+
     const updated: Worker = {
       ...merged,
-      status:
-        current.status === "self_deactivated"
-          ? "self_deactivated"
-          : complete
-            ? "complete"
-            : "incomplete",
+      status,
+      profileCompletedAt: earnedBadge
+        ? (current.profileCompletedAt ?? nowIso())
+        : null,
     };
 
     store.workers = store.workers.map((worker) =>

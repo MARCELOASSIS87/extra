@@ -33,7 +33,10 @@ export async function markAttendance(
     if (job.companyId !== companyId) {
       return err("forbidden", "Esta vaga é de outra empresa.");
     }
-    if (job.date >= nowIso().slice(0, 10)) {
+    // Com instante dá para ser exato: o bico terminou, pode marcar. Antes,
+    // comparando só a data, a formatura que sai às 2h do domingo só liberava
+    // a marcação na segunda.
+    if (job.endsAt > nowIso()) {
       return err("job_not_finished", "A vaga ainda não aconteceu.");
     }
 
@@ -95,12 +98,12 @@ export async function listAttendancePending(): Promise<
 > {
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
-    const today = nowIso().slice(0, 10);
+    const now = nowIso();
     const items = store.applications
       .filter((item) => item.status !== "withdrawn")
       .flatMap((item) => {
         const job = store.jobPosts.find((j) => j.id === item.jobPostId);
-        if (!job || job.companyId !== companyId || job.date >= today) {
+        if (!job || job.companyId !== companyId || job.endsAt > now) {
           return [];
         }
         const alreadyMarked = store.attendanceRecords.some(
@@ -119,7 +122,7 @@ export async function listAttendancePending(): Promise<
           },
         ];
       })
-      .sort((a, b) => a.job.date.localeCompare(b.job.date));
+      .sort((a, b) => a.job.startsAt.localeCompare(b.job.startsAt));
 
     return ok(items);
   });

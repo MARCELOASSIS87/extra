@@ -6,6 +6,7 @@ import type {
   WorkerPublicProfile,
 } from "@extra/shared/types/worker";
 import { companies, workers } from "@/mocks/fixtures";
+import { cityName } from "./cities";
 import { resetStore, store } from "@/mocks/store";
 import { err } from "./result";
 
@@ -157,7 +158,8 @@ const SHORT_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export function randomShortCode(): string {
   let code = "";
   for (let i = 0; i < 4; i++) {
-    code += SHORT_CODE_CHARS[Math.floor(Math.random() * SHORT_CODE_CHARS.length)];
+    code +=
+      SHORT_CODE_CHARS[Math.floor(Math.random() * SHORT_CODE_CHARS.length)];
   }
   return code;
 }
@@ -198,6 +200,7 @@ export function toPublicProfile(worker: Worker): WorkerPublicProfile {
     id: worker.id,
     firstName,
     lastNameInitial: lastName ? `${lastName.charAt(0)}.` : "",
+    cityName: cityName(worker.cityId),
     neighborhood: worker.neighborhood,
     roles: worker.roles,
     experience: worker.experience,
@@ -210,7 +213,8 @@ export function toPublicProfile(worker: Worker): WorkerPublicProfile {
     introVideoPosterUrl: worker.introVideoKey
       ? `/mock-media/${worker.introVideoKey.replace(/\.\w+$/, ".jpg")}`
       : null,
-    hasCompleteProfile: worker.status === "complete",
+    // O selo é o vídeo (§16.1), não a conclusão do cadastro.
+    hasCompleteProfile: worker.profileCompletedAt !== null,
     attendance: computeAttendanceSummary(worker.id),
     memberSince: worker.createdAt,
   };
@@ -228,6 +232,5 @@ export function toApplicantProfile(worker: Worker): WorkerApplicantProfile {
     ...toPublicProfile(worker),
     fullName: worker.fullName,
     availability: worker.availability,
-    references: worker.references,
   };
 }

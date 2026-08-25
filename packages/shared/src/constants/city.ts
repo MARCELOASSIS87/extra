@@ -1,6 +1,6 @@
 /**
- * MVP de cidade única. Fica numa constante porque o nome já apareceu
- * espalhado por texto de interface, metadata e camada de dados — e mudar de
- * cidade uma vez foi suficiente para deixar sobras em vários lugares.
+ * Só copy: título de página, manifest e chamada da home. Cidade de dado vive
+ * na tabela `cities` e circula como `cityId` (§7.1) — esta constante nunca
+ * entra em comparação, filtro ou payload.
  */
 export const CITY = "Poços de Caldas";

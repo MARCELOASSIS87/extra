@@ -124,7 +124,7 @@ export async function listMyApplicationsWithJob(): Promise<
           );
           return job ? [{ application, job }] : [];
         })
-        .sort((a, b) => a.job.date.localeCompare(b.job.date)),
+        .sort((a, b) => a.job.startsAt.localeCompare(b.job.startsAt)),
     ),
   );
 }

@@ -9,7 +9,7 @@ export interface Company {
   responsibleName: string;
   phone: string;
   email: string;
-  city: string;
+  cityId: string;
   subscriptionStatus: SubscriptionStatus;
   subscriptionEndsAt: string | null;
   createdAt: string;

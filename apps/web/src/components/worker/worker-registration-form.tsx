@@ -13,6 +13,7 @@ import {
   type WorkerQuickRegistrationInput,
 } from "@extra/shared/schemas/worker";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
+import { CURRENT_TERMS_VERSION } from "@extra/shared/constants/terms";
 import { createWorkerQuick } from "@/lib/api/workers";
 import { applyToJob } from "@/lib/api/applications";
 import { DEMO_ROLE_COOKIE, DEMO_WORKER_COOKIE } from "@/lib/api/mock";
@@ -62,6 +63,8 @@ export function WorkerRegistrationForm({ job }: { job: JobPost | null }) {
       birthDate: "",
       roles: [],
       neighborhood: "",
+      termsVersion: CURRENT_TERMS_VERSION,
+      termsAccepted: false,
     },
   });
 
@@ -158,6 +161,7 @@ export function WorkerRegistrationForm({ job }: { job: JobPost | null }) {
 
       <div className="grid gap-1.5">
         <span className={labelClass}>Funções que você faz</span>
+        <p className="text-muted-foreground text-xs">Escolha até 5.</p>
         <div className="grid grid-cols-2 gap-2">
           {Object.entries(JOB_ROLE_LABELS).map(([value, label]) => (
             <label key={value} className="flex items-center gap-2 text-sm">
@@ -196,6 +200,23 @@ export function WorkerRegistrationForm({ job }: { job: JobPost | null }) {
         )}
       </div>
 
+      <div className="grid gap-1.5">
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="border-input mt-0.5 size-4 shrink-0 rounded"
+            aria-invalid={!!errors.termsAccepted || undefined}
+            {...register("termsAccepted")}
+          />
+          <span>Li e aceito os termos de uso da Extraqui.</span>
+        </label>
+        {errors.termsAccepted && (
+          <p role="alert" className={errorClass}>
+            {errors.termsAccepted.message}
+          </p>
+        )}
+      </div>
+
       {errors.root && (
         <p role="alert" className={errorClass}>
           {errors.root.message}
@@ -217,7 +238,9 @@ function SuccessState({ worker }: { worker: Worker }) {
   return (
     <div className="mt-6 rounded-xl border border-dashed p-6 text-center">
       <CircleCheck aria-hidden="true" className="text-primary mx-auto size-8" />
-      <p className="mt-3 font-medium">Cadastro de {worker.fullName} recebido.</p>
+      <p className="mt-3 font-medium">
+        Cadastro de {worker.fullName} recebido.
+      </p>
       <p className="text-muted-foreground mt-1 text-sm">
         Você já pode se candidatar às vagas da sua função e região.
       </p>

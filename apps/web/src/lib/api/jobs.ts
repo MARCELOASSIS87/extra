@@ -1,6 +1,10 @@
 import type { ApiResult, Paginated } from "@extra/shared/types/api";
 import type { JobFilters, JobPost } from "@extra/shared/types/job";
-import { jobPostSchema, type JobPostInput } from "@extra/shared/schemas/job";
+import {
+  jobPostSchema,
+  type JobPostFormInput,
+} from "@extra/shared/schemas/job";
+import { saoPauloDate } from "@extra/shared/lib/datetime";
 import {
   getCurrentCompanyId,
   getCurrentWorkerId,
@@ -38,18 +42,20 @@ export async function listJobs(
   filters: JobFilters = {},
 ): Promise<ApiResult<Paginated<JobPost>>> {
   return withMock(() => {
-    const { role, city, neighborhood, date } = filters;
+    const { role, cityId, neighborhood, date } = filters;
     const page = Math.max(1, filters.page ?? 1);
     const pageSize = Math.max(1, filters.pageSize ?? DEFAULT_PAGE_SIZE);
 
     const matches = store.jobPosts
       .filter((job) => job.status === "open")
       .filter((job) => (role ? job.role === role : true))
-      .filter((job) => (city ? job.city === city : true))
+      .filter((job) => (cityId ? job.cityId === cityId : true))
       .filter((job) =>
         neighborhood ? job.neighborhood === neighborhood : true,
       )
-      .filter((job) => (date ? job.date === date : true))
+      // O filtro é por dia do calendário em Poços: quem procura "sábado"
+      // quer a formatura que começa 22h de sábado, não o instante UTC.
+      .filter((job) => (date ? saoPauloDate(job.startsAt) === date : true))
       .sort(byHighlightThenRecent);
 
     const start = (page - 1) * pageSize;
@@ -65,11 +71,14 @@ export async function listJobs(
 
 /**
  * "Vagas para você" da home do trabalhador: o roteamento do §16.2 aplicado à
- * listagem — só as funções e a região do perfil dele. Quem ainda não escolheu
- * função vê todas as abertas da cidade, em vez de uma tela vazia.
+ * listagem — só as funções e as cidades que ele assinou. Quem ainda não
+ * escolheu função vê todas as abertas dessas cidades, em vez de tela vazia.
  *
- * ponytail: região = cidade do perfil (MVP de cidade única). Peso por bairro
- * entra quando houver mais de uma cidade.
+ * O opt-in do trabalhador é o teto: quem mora numa vizinha e assinou Poços vê
+ * as vagas de Poços; quem não assinou não vê, por mais perto que seja.
+ *
+ * ponytail: `nearbyRadiusKm` ainda não entra aqui — a tela que o coleta é a
+ * S4. Quando entrar, soma as cidades do raio às assinadas.
  */
 export async function listJobsForMe(
   pageSize = WORKER_HOME_PAGE_SIZE,
@@ -81,7 +90,7 @@ export async function listJobsForMe(
 
     const matches = store.jobPosts
       .filter((job) => job.status === "open")
-      .filter((job) => job.city === worker.city)
+      .filter((job) => worker.notificationCityIds.includes(job.cityId))
       .filter(
         (job) => worker.roles.length === 0 || worker.roles.includes(job.role),
       )
@@ -124,7 +133,7 @@ export async function listOpenJobNeighborhoods(): Promise<ApiResult<string[]>> {
  * linguagem discriminatória do §14.1, que o cliente sozinho contornaria.
  */
 export async function createJob(
-  input: JobPostInput,
+  input: JobPostFormInput,
 ): Promise<ApiResult<JobPost>> {
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
@@ -145,13 +154,15 @@ export async function createJob(
       id: randomId(),
       slug: `${slugify(data.title)}-${randomId().slice(0, 6)}`,
       companyId: company.id,
-      city: company.city,
+      cityId: company.cityId,
       applicationsCount: 0,
       maxApplications: data.vacancies * 3,
       status: "open",
       isHighlighted: false,
       publishedAt: nowIso(),
-      expiresAt: `${data.date}T23:59:00.000Z`,
+      // O anúncio deixa de valer quando o bico acaba — com instante, isso
+      // é o próprio `endsAt`, e não erra mais o dia na virada da noite.
+      expiresAt: data.endsAt,
     };
 
     store.jobPosts = [job, ...store.jobPosts];

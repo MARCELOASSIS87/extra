@@ -11,6 +11,7 @@ import { ConfirmApplicationButton } from "@/components/home/confirm-application-
 import { JobCard } from "@/components/jobs/job-card";
 import { JobListSkeleton } from "@/components/jobs/job-list-skeleton";
 import { buttonVariants } from "@/components/ui/button";
+import { nextCalendarDay, saoPauloDate } from "@extra/shared/lib/datetime";
 import { formatJobDate, formatTimeRange } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -27,13 +28,6 @@ const STATUS_LABELS: Record<ApplicationStatus, string> = {
   no_response: "Sem resposta",
 };
 
-/** `date` é data pura: ancorar ao meio-dia UTC evita o "volta um dia". */
-const nextDay = (date: string) => {
-  const day = new Date(`${date}T12:00:00Z`);
-  day.setUTCDate(day.getUTCDate() + 1);
-  return day.toISOString().slice(0, 10);
-};
-
 /**
  * A home de quem já entrou como trabalhador: nada de herói nem de "Quero
  * trabalhar" — quem já se cadastrou não precisa mais ser convertido. A
@@ -45,27 +39,32 @@ const nextDay = (date: string) => {
  */
 export function WorkerHomeView({
   data,
-  today,
+  now,
 }: {
   data: WorkerHomeData | null;
-  today: string;
+  /** Instante ISO, calculado no cliente — ver `WorkerHomeClient`. */
+  now: string;
 }) {
   const worker = data?.worker.ok ? data.worker.data : null;
   const firstName = worker?.fullName.split(" ")[0] ?? "";
 
   const applications =
     data && data.applications.ok ? data.applications.data : null;
-  const tomorrow = applications ? nextDay(today) : "";
+  // Véspera é dia de calendário em Poços, não em UTC: às 22h daqui o dia
+  // em UTC já virou, e "amanhã" apontaria para depois de amanhã.
+  const tomorrow = applications ? nextCalendarDay(saoPauloDate(now)) : "";
 
   const pending = applications?.filter(
     ({ application, job }) =>
-      job.date === tomorrow &&
+      saoPauloDate(job.startsAt) === tomorrow &&
       application.status !== "withdrawn" &&
       application.confirmedAt === null,
   );
+  // Ainda vale a pena mostrar enquanto o bico não terminou — inclusive o que
+  // começou ontem às 22h e termina hoje às 2h.
   const active = applications?.filter(
     ({ application, job }) =>
-      application.status !== "withdrawn" && job.date >= today,
+      application.status !== "withdrawn" && job.endsAt >= now,
   );
 
   return (
@@ -98,8 +97,8 @@ export function WorkerHomeView({
                   {job.title}
                 </Link>
                 <p className="text-muted-foreground mt-1 text-sm first-letter:uppercase">
-                  {formatJobDate(job.date)} ·{" "}
-                  {formatTimeRange(job.startTime, job.endTime)} ·{" "}
+                  {formatJobDate(job.startsAt)} ·{" "}
+                  {formatTimeRange(job.startsAt, job.endsAt)} ·{" "}
                   {job.neighborhood}
                 </p>
                 <ConfirmApplicationButton applicationId={application.id} />
@@ -182,8 +181,8 @@ export function WorkerHomeView({
                   >
                     <p className="font-bold leading-snug">{job.title}</p>
                     <p className="text-muted-foreground mt-1 text-sm first-letter:uppercase">
-                      {formatJobDate(job.date)} ·{" "}
-                      {formatTimeRange(job.startTime, job.endTime)}
+                      {formatJobDate(job.startsAt)} ·{" "}
+                      {formatTimeRange(job.startsAt, job.endsAt)}
                     </p>
                     <p className="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                       <span className="bg-secondary text-secondary-foreground rounded-md px-2 py-1 font-medium">

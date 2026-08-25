@@ -2,8 +2,8 @@
 
 **Progresso: tudo até o PARE AQUI concluído**, mas a sessão de modelagem do banco (22/08)
 mudou contratos que o front já implementou. **O bloco S é a dívida que isso gerou** e vem
-antes de mostrar qualquer coisa pro sócio — hoje o cadastro ainda pede referências e a vaga
-ainda usa data e hora separadas.
+antes de mostrar qualquer coisa pro sócio. S1, S2 e S3 já foram: cidade é entidade, a vaga
+guarda instantes e as referências saíram do cadastro. Falta S4 a S7.
 
 Depois do bloco S: o sócio no celular, com roteiro de tarefas. Depois disso, contar os
 anunciantes recorrentes nos grupos e pré-vender cinco assinaturas. As Fases 4 e 5 (API, banco,
@@ -378,7 +378,7 @@ uma tela que já está errada e o retorno dele vem contaminado.*
 
 *Ordem obrigatória: S1 primeiro (é contrato), depois o resto.*
 
-### S1. Cidade vira entidade
+### S1. Cidade vira entidade ✅
 ```
 Conforme §7.1 da especificação.
 
@@ -397,7 +397,7 @@ Conforme §7.1 da especificação.
 ```
 **Pronto quando:** não existe mais nenhuma comparação de cidade por string no `apps/web`.
 
-### S2. Data e hora da vaga viram instantes
+### S2. Data e hora da vaga viram instantes ✅
 ```
 Conforme §7.5 da especificação.
 
@@ -413,7 +413,7 @@ Conforme §7.5 da especificação.
 **Pronto quando:** existe uma vaga nas fixtures que atravessa a meia-noite e ela exibe, filtra
 e ordena certo.
 
-### S3. Referências saem do cadastro
+### S3. Referências saem do cadastro ✅
 ```
 Conforme §16.1 da especificação.
 

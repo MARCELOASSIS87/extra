@@ -3,10 +3,12 @@ import {
   workerStep1IdentitySchema,
   workerStep2PhoneSchema,
   workerStep4ProfileSchema,
-  workerStep6ReferencesSchema,
+  workerTermsAcceptanceSchema,
 } from "./worker";
 import { jobPostSchema, hasDiscriminatoryLanguage } from "./job";
 import { companyRegistrationSchema } from "./company";
+import { CURRENT_TERMS_VERSION } from "../constants/terms";
+import { nextCalendarDay, saoPauloDate, saoPauloTime } from "../lib/datetime";
 
 const yearsAgo = (years: number): string => {
   const date = new Date();
@@ -70,19 +72,53 @@ assert.equal(
   false,
 );
 
-// --- Etapa 6: exatamente duas referências ---
-const reference = {
-  name: "João",
-  phone: "+5511999999999",
-  relationship: "ex-patrão",
-};
+// --- Máximo de 5 funções (§7.3) ---
+const profileWith = (roles: string[]) => ({
+  roles,
+  experience: "3 anos em eventos",
+  availability: [{ weekday: 6, period: "night" }],
+  neighborhood: "Centro",
+});
 assert.equal(
-  workerStep6ReferencesSchema.safeParse({ references: [reference, reference] })
-    .success,
+  workerStep4ProfileSchema.safeParse(
+    profileWith([
+      "garcom",
+      "barman",
+      "cozinheiro",
+      "seguranca",
+      "recepcionista",
+    ]),
+  ).success,
   true,
 );
 assert.equal(
-  workerStep6ReferencesSchema.safeParse({ references: [reference] }).success,
+  workerStep4ProfileSchema.safeParse(
+    profileWith([
+      "garcom",
+      "barman",
+      "cozinheiro",
+      "seguranca",
+      "recepcionista",
+      "motorista",
+    ]),
+  ).success,
+  false,
+  "seis funções não passam",
+);
+
+// --- Aceite do termo é etapa própria, e recusar não passa ---
+assert.equal(
+  workerTermsAcceptanceSchema.safeParse({
+    termsVersion: CURRENT_TERMS_VERSION,
+    termsAccepted: true,
+  }).success,
+  true,
+);
+assert.equal(
+  workerTermsAcceptanceSchema.safeParse({
+    termsVersion: CURRENT_TERMS_VERSION,
+    termsAccepted: false,
+  }).success,
   false,
 );
 
@@ -138,6 +174,35 @@ assert.equal(
   jobPostSchema.safeParse({ ...validJob, requirements: null }).success,
   true,
 );
+
+// --- Data e hora viram instantes em UTC (§7.5) ---
+// Poços está em UTC-3: 19h de sábado é 22:00Z do mesmo dia.
+const sameDay = jobPostSchema.parse(validJob);
+assert.equal(sameDay.startsAt, "2026-09-05T21:00:00.000Z");
+assert.equal(sameDay.endsAt, "2026-09-06T02:30:00.000Z");
+assert.ok(
+  !("date" in sameDay) && !("startTime" in sameDay),
+  "o contrato guarda instante, não data e hora soltas",
+);
+
+// Formatura entra 19h e sai 1h: o fim cai no dia seguinte, e a duração
+// continua positiva — era exatamente o que três campos separados erravam.
+const overnight = jobPostSchema.parse({
+  ...validJob,
+  date: "2026-08-20",
+  startTime: "19:00",
+  endTime: "01:00",
+});
+assert.equal(overnight.startsAt, "2026-08-20T22:00:00.000Z");
+assert.equal(overnight.endsAt, "2026-08-21T04:00:00.000Z");
+assert.ok(overnight.endsAt > overnight.startsAt, "duração nunca é negativa");
+
+// O dia do calendário em Poços é o que a listagem filtra: 23h do dia 20 é
+// 02:00Z do dia 21 em UTC, e ainda assim é uma vaga do dia 20.
+assert.equal(saoPauloDate("2026-08-21T02:00:00.000Z"), "2026-08-20");
+assert.equal(saoPauloDate(overnight.startsAt), "2026-08-20");
+assert.equal(saoPauloTime(overnight.endsAt), "01:00");
+assert.equal(nextCalendarDay("2026-12-31"), "2027-01-01");
 
 // --- Cadastro da empresa: CNPJ, e-mail ---
 const validCompany = {

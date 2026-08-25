@@ -71,14 +71,14 @@ export function AttendancePendingList({ items }: { items: PendingItem[] }) {
                 <CalendarDays aria-hidden="true" className="size-4 shrink-0" />
                 <dt className="sr-only">Data</dt>
                 <dd className="first-letter:uppercase">
-                  {formatJobDate(item.job.date)}
+                  {formatJobDate(item.job.startsAt)}
                 </dd>
               </div>
               <div className="flex items-center gap-2">
                 <Clock aria-hidden="true" className="size-4 shrink-0" />
                 <dt className="sr-only">Horário</dt>
                 <dd>
-                  {formatTimeRange(item.job.startTime, item.job.endTime)}
+                  {formatTimeRange(item.job.startsAt, item.job.endsAt)}
                 </dd>
               </div>
               <div className="flex min-w-0 items-center gap-2">

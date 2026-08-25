@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { getJobBySlug } from "@/lib/api/jobs";
+import { cityName } from "@/lib/api/cities";
 import { listMyApplications } from "@/lib/api/applications";
 import { getSessionRole } from "@/lib/api/session";
 import { isMockMode } from "@/lib/api/mock";
@@ -22,9 +23,9 @@ export async function generateMetadata({
   if (!result.ok || !result.data) return {};
   const job = result.data;
 
-  const { weekday, shortDate } = formatJobWeekdayAndDate(job.date);
+  const { weekday, shortDate } = formatJobWeekdayAndDate(job.startsAt);
   const vacancies = job.vacancies === 1 ? "1 vaga" : `${job.vacancies} vagas`;
-  const description = `${JOB_ROLE_LABELS[job.role]} em ${job.city} — ${weekday} ${shortDate}, ${formatTimeRange(job.startTime, job.endTime)} — ${formatMoney(job.payAmount)}. ${vacancies}.`;
+  const description = `${JOB_ROLE_LABELS[job.role]} em ${cityName(job.cityId)} — ${weekday} ${shortDate}, ${formatTimeRange(job.startsAt, job.endsAt)} — ${formatMoney(job.payAmount)}. ${vacancies}.`;
   const url = `${SITE_URL}/vagas/${job.slug}`;
 
   return {

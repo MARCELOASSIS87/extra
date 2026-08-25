@@ -13,7 +13,7 @@ import {
 export function WorkerHomeClient() {
   const [state, setState] = useState<{
     data: WorkerHomeData;
-    today: string;
+    now: string;
   } | null>(null);
 
   useEffect(() => {
@@ -25,12 +25,12 @@ export function WorkerHomeClient() {
       listMyApplicationsWithJob(),
       listJobsForMe(),
     ]).then(([worker, applications, jobs]) => {
-      // "Hoje" calculado aqui, junto com o dado: no render ele viraria na
+      // "Agora" calculado aqui, junto com o dado: no render ele viraria na
       // hidratação de uma sessão aberta pela meia-noite.
       if (active) {
         setState({
           data: { worker, applications, jobs },
-          today: new Date().toISOString().slice(0, 10),
+          now: new Date().toISOString(),
         });
       }
     });
@@ -40,5 +40,5 @@ export function WorkerHomeClient() {
     };
   }, []);
 
-  return <WorkerHomeView data={state?.data ?? null} today={state?.today ?? ""} />;
+  return <WorkerHomeView data={state?.data ?? null} now={state?.now ?? ""} />;
 }

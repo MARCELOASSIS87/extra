@@ -14,7 +14,6 @@ import { listJobCandidates } from "@/lib/api/applications";
 import { getMyCompany } from "@/lib/api/companies";
 import { AttendanceMarkButtons } from "@/components/company/attendance-mark-buttons";
 import { ContactCandidateButton } from "@/components/company/contact-candidate-button";
-import { WhatsappButton } from "@/components/contact/whatsapp-button";
 import { formatAttendanceSummary, formatJobDate } from "@/lib/format";
 
 type Candidates = Awaited<ReturnType<typeof listJobCandidates>>;
@@ -41,7 +40,7 @@ export function CandidateProfileClient({
   const [state, setState] = useState<{
     result: Candidates;
     company: ApiResult<Company | null>;
-    today: string;
+    now: string;
   } | null>(null);
 
   useEffect(() => {
@@ -53,7 +52,8 @@ export function CandidateProfileClient({
           setState({
             result,
             company,
-            today: new Date().toISOString().slice(0, 10),
+            // Instante inteiro: o bico pode terminar às 2h da manhã.
+            now: new Date().toISOString(),
           });
         }
       },
@@ -66,7 +66,7 @@ export function CandidateProfileClient({
 
   if (!state) return <ProfileSkeleton />;
 
-  const { result, company, today } = state;
+  const { result, company, now } = state;
   if (!result.ok) {
     if (["job_not_found", "forbidden"].includes(result.error.code)) notFound();
     return (
@@ -134,7 +134,9 @@ export function CandidateProfileClient({
         </p>
       )}
 
-      <p className="text-muted-foreground mt-3 text-sm">{worker.neighborhood}</p>
+      <p className="text-muted-foreground mt-3 text-sm">
+        {worker.neighborhood}, {worker.cityName}
+      </p>
 
       <div className="mt-4">
         <h2 className="text-sm font-bold tracking-tight">Disponibilidade</h2>
@@ -149,7 +151,8 @@ export function CandidateProfileClient({
                 key={`${slot.weekday}-${slot.period}`}
                 className={chipClass}
               >
-                {WEEKDAY_SHORT_LABELS[slot.weekday]} · {PERIOD_LABELS[slot.period]}
+                {WEEKDAY_SHORT_LABELS[slot.weekday]} ·{" "}
+                {PERIOD_LABELS[slot.period]}
               </span>
             ))}
           </p>
@@ -176,39 +179,8 @@ export function CandidateProfileClient({
         </p>
       )}
 
-      <div className="mt-6">
-        <h2 className="text-lg font-bold tracking-tight">Referências</h2>
-        {worker.references.length === 0 ? (
-          <p className="text-muted-foreground mt-2 text-sm">
-            Nenhuma referência informada no cadastro.
-          </p>
-        ) : (
-          <ul className="mt-2 grid gap-3">
-            {worker.references.map((reference) => (
-              <li
-                key={reference.phone}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{reference.name}</p>
-                  <p className="text-muted-foreground text-sm">
-                    {reference.relationship}
-                  </p>
-                </div>
-                <WhatsappButton
-                  phone={reference.phone}
-                  label="Falar no WhatsApp"
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
       <p className="text-muted-foreground mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-        <span>
-          No Extraqui desde {formatJobDate(worker.memberSince.slice(0, 10))}
-        </span>
+        <span>No Extraqui desde {formatJobDate(worker.memberSince)}</span>
         <span className={chipClass}>Código {application.shortCode}</span>
       </p>
 
@@ -225,7 +197,7 @@ export function CandidateProfileClient({
         />
       </div>
 
-      {job.date < today && (
+      {job.endsAt < now && (
         <div className="mt-8 rounded-xl border p-4">
           <h2 className="font-bold tracking-tight">
             {worker.firstName} compareceu?

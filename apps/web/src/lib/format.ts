@@ -1,6 +1,5 @@
 import type { AttendanceSummary } from "@extra/shared/types/attendance";
-
-const TIME_ZONE = "America/Sao_Paulo";
+import { saoPauloTime, TIME_ZONE } from "@extra/shared/lib/datetime";
 
 const dayFormatter = new Intl.DateTimeFormat("pt-BR", {
   weekday: "short",
@@ -30,11 +29,12 @@ const moneyFormatter = new Intl.NumberFormat("pt-BR", {
 });
 
 /**
- * `JobPost.date` é data pura (YYYY-MM-DD), sem hora. Ancorar ao meio-dia UTC
- * evita o clássico "volta um dia" ao formatar em America/Sao_Paulo (UTC-3).
+ * Instante ISO em UTC → "sáb., 20 de ago." no fuso de Poços. O `Intl` faz a
+ * conversão sozinho: nada de fatiar string, que era de onde vinha o clássico
+ * "volta um dia".
  */
-export function formatJobDate(date: string): string {
-  return dayFormatter.format(new Date(`${date}T12:00:00Z`));
+export function formatJobDate(instant: string): string {
+  return dayFormatter.format(new Date(instant));
 }
 
 export function formatMoney(value: number): string {
@@ -46,19 +46,24 @@ export function formatMoney(value: number): string {
  * (candidatura em job-apply-panel.tsx e compartilhar em share-job-button.tsx),
  * que escrevem a data por extenso em vez do formato curto de `formatJobDate`.
  */
-export function formatJobWeekdayAndDate(
-  date: string,
-): { weekday: string; shortDate: string } {
-  const jobDate = new Date(`${date}T12:00:00Z`);
+export function formatJobWeekdayAndDate(instant: string): {
+  weekday: string;
+  shortDate: string;
+} {
+  const jobDate = new Date(instant);
   return {
     weekday: weekdayLongFormatter.format(jobDate),
     shortDate: shortDateFormatter.format(jobDate),
   };
 }
 
-/** "19:00" e "01:00" viram "19:00 às 01:00". */
-export function formatTimeRange(startTime: string, endTime: string): string {
-  return `${startTime} às ${endTime}`;
+/**
+ * Os dois instantes viram "19:00 às 01:00", no relógio de Poços. Quem entra
+ * 22h e sai 2h continua lendo "22:00 às 02:00" — a virada do dia está em
+ * `endsAt`, e a linha do horário não precisa repeti-la.
+ */
+export function formatTimeRange(startsAt: string, endsAt: string): string {
+  return `${saoPauloTime(startsAt)} às ${saoPauloTime(endsAt)}`;
 }
 
 const pluralize = (count: number, singular: string, plural: string) =>

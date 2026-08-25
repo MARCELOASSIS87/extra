@@ -6,7 +6,10 @@ import { CircleCheck, ShieldAlert } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { JobPost } from "@extra/shared/types/job";
-import { jobPostSchema, type JobPostInput } from "@extra/shared/schemas/job";
+import {
+  jobPostFormSchema,
+  type JobPostFormInput,
+} from "@extra/shared/schemas/job";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { createJob } from "@/lib/api/jobs";
 import { buttonVariants } from "@/components/ui/button";
@@ -45,8 +48,10 @@ export function JobPostForm() {
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<JobPostInput>({
-    resolver: zodResolver(jobPostSchema),
+    // Três campos, do jeito que a empresa pensa. Os dois instantes do
+    // contrato saem do `.transform()` de `jobPostSchema`, no envio.
+  } = useForm<JobPostFormInput>({
+    resolver: zodResolver(jobPostFormSchema),
     defaultValues: {
       role: "garcom",
       title: "",
@@ -65,10 +70,10 @@ export function JobPostForm() {
 
   if (published) return <SuccessState job={published} />;
 
-  const onSubmit = async (input: JobPostInput) => {
+  const onSubmit = async (input: JobPostFormInput) => {
     const result = await createJob(input);
     if (!result.ok) {
-      const field = result.error.field as keyof JobPostInput | undefined;
+      const field = result.error.field as keyof JobPostFormInput | undefined;
       setError(field ?? "root", { message: result.error.message });
       return;
     }
@@ -223,7 +228,8 @@ export function JobPostForm() {
           aria-invalid={!!errors.payNote || undefined}
           className={fieldClass}
           {...register("payNote", {
-            setValueAs: (value: string | null) => (value && value.trim() ? value : null),
+            setValueAs: (value: string | null) =>
+              value && value.trim() ? value : null,
           })}
         />
         <FieldError message={errors.payNote?.message} />
@@ -267,7 +273,8 @@ export function JobPostForm() {
           aria-invalid={!!errors.requirements || undefined}
           className={textareaClass}
           {...register("requirements", {
-            setValueAs: (value: string | null) => (value && value.trim() ? value : null),
+            setValueAs: (value: string | null) =>
+              value && value.trim() ? value : null,
           })}
         />
         <FieldError message={errors.requirements?.message} />
@@ -290,7 +297,9 @@ function SuccessState({ job }: { job: JobPost }) {
   return (
     <div className="mt-6 rounded-xl border border-dashed p-6 text-center">
       <CircleCheck aria-hidden="true" className="text-primary mx-auto size-8" />
-      <p className="mt-3 font-medium">Vaga &ldquo;{job.title}&rdquo; publicada.</p>
+      <p className="mt-3 font-medium">
+        Vaga &ldquo;{job.title}&rdquo; publicada.
+      </p>
       <p className="text-muted-foreground mt-1 text-sm">
         Os trabalhadores da função e da região já podem ser notificados.
       </p>

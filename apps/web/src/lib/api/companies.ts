@@ -5,7 +5,7 @@ import {
   companyRegistrationSchema,
   type CompanyRegistrationInput,
 } from "@extra/shared/schemas/company";
-import { CITY } from "@extra/shared/constants/city";
+import { DEFAULT_CITY_ID } from "./cities";
 import { getCurrentCompanyId, nowIso, randomId, store, withMock } from "./mock";
 import { err, ok } from "./result";
 
@@ -43,7 +43,7 @@ export async function createCompany(
       responsibleName: parsed.data.responsibleName,
       phone: parsed.data.phone,
       email: parsed.data.email,
-      city: CITY,
+      cityId: DEFAULT_CITY_ID,
       // Assinatura começa em teste; cobrança é da empresa, nunca do trabalhador.
       subscriptionStatus: "trialing",
       subscriptionEndsAt: new Date(Date.now() + 14 * 86400000).toISOString(),

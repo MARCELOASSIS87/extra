@@ -4,6 +4,7 @@ import type { JobPost } from "@extra/shared/types/job";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { formatJobDate, formatMoney, formatTimeRange } from "@/lib/format";
 import { JOB_ROLE_ICONS } from "@/lib/job-role-icons";
+import { cityName } from "@/lib/api/cities";
 import { ShareJobButton } from "@/components/jobs/share-job-button";
 
 /**
@@ -48,13 +49,13 @@ export function JobCard({ job }: { job: JobPost }) {
             <CalendarDays aria-hidden="true" className="size-4 shrink-0" />
             <dt className="sr-only">Data</dt>
             <dd className="first-letter:uppercase">
-              {formatJobDate(job.date)}
+              {formatJobDate(job.startsAt)}
             </dd>
           </div>
           <div className="flex items-center gap-2">
             <Clock aria-hidden="true" className="size-4 shrink-0" />
             <dt className="sr-only">Horário</dt>
-            <dd>{formatTimeRange(job.startTime, job.endTime)}</dd>
+            <dd>{formatTimeRange(job.startsAt, job.endsAt)}</dd>
           </div>
           <div className="flex min-w-0 items-center gap-2">
             <MapPin aria-hidden="true" className="size-4 shrink-0" />
@@ -62,7 +63,7 @@ export function JobCard({ job }: { job: JobPost }) {
             {/* min-w-0: item de flex também não encolhe sozinho — sem isso o
                 truncate não trunca de verdade, só corta quando já for tarde. */}
             <dd className="min-w-0 truncate">
-              {job.neighborhood}, {job.city}
+              {job.neighborhood}, {cityName(job.cityId)}
             </dd>
           </div>
         </dl>

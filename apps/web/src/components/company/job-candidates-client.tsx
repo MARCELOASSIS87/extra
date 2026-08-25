@@ -108,7 +108,7 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
                   </div>
                   <WorkerAttendanceSummary worker={worker} />
                   <p className="text-muted-foreground mt-1 text-sm">
-                    {worker.neighborhood}
+                    {worker.neighborhood}, {worker.cityName}
                     {worker.experience && ` · ${worker.experience}`}
                   </p>
 

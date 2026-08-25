@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { getJobBySlug } from "@/lib/api/jobs";
+import { cityName } from "@/lib/api/cities";
 import {
   formatJobWeekdayAndDate,
   formatMoney,
@@ -78,7 +79,7 @@ export default async function Image({
     );
   }
 
-  const { weekday, shortDate } = formatJobWeekdayAndDate(job.date);
+  const { weekday, shortDate } = formatJobWeekdayAndDate(job.startsAt);
   const vacancies = job.vacancies === 1 ? "1 vaga" : `${job.vacancies} vagas`;
 
   return new ImageResponse(
@@ -127,10 +128,10 @@ export default async function Image({
           </div>
 
           <div style={{ display: "flex", fontSize: 28, color: MUTED, marginBottom: 8 }}>
-            {`${weekday}, ${shortDate} · ${formatTimeRange(job.startTime, job.endTime)}`}
+            {`${weekday}, ${shortDate} · ${formatTimeRange(job.startsAt, job.endsAt)}`}
           </div>
           <div style={{ display: "flex", fontSize: 28, color: MUTED }}>
-            {`${job.city} · ${vacancies}`}
+            {`${cityName(job.cityId)} · ${vacancies}`}
           </div>
         </div>
 

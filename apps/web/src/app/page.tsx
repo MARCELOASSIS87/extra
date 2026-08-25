@@ -40,7 +40,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     return (
       <WorkerHomeView
         data={{ worker, applications, jobs }}
-        today={new Date().toISOString().slice(0, 10)}
+        now={new Date().toISOString()}
       />
     );
   }

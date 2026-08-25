@@ -80,7 +80,7 @@ export function CompanyPanelView({ data }: { data: CompanyPanelData | null }) {
                       {job.title}
                     </h3>
                     <p className="text-muted-foreground mt-1 text-sm first-letter:uppercase">
-                      {formatJobDate(job.date)}
+                      {formatJobDate(job.startsAt)}
                     </p>
                     <p className="text-muted-foreground mt-1 text-xs">
                       {job.applicationsCount === 1
@@ -120,7 +120,7 @@ export function CompanyPanelView({ data }: { data: CompanyPanelData | null }) {
                   </p>
                   <p className="text-muted-foreground mt-0.5 truncate text-sm">
                     {job.title} · candidatou-se em{" "}
-                    {formatJobDate(application.appliedAt.slice(0, 10))}
+                    {formatJobDate(application.appliedAt)}
                   </p>
                 </li>
               ))}
