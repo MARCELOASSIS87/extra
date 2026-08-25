@@ -15,8 +15,8 @@ Uma tarefa por conversa no Claude Code. **Commit ao fim de cada uma** — é o s
 Não pule a ordem dentro de cada bloco.
 
 > Referências de seção apontam para `ESPECIFICACAO-TECNICA.md` (sem versão no nome).
-> O modelo de dados está escrito em `apps/api/prisma/schema.prisma` e
-> `infra/sql/constraints.sql`, mas **nada foi executado ainda**.
+> O modelo de dados está escrito em `apps/api/prisma/schema.prisma` e no SQL das migrations —
+> constraints vivem dentro das migrations, ver a seção correspondente do `CLAUDE.md`.
 
 ---
 

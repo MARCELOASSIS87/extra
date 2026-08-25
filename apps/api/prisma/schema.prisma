@@ -1,9 +1,15 @@
 // Extraqui — Prisma schema
 // Derived from ESPECIFICACAO-TECNICA-v2_3.md §7 and the inviolable rules in CLAUDE.md.
 //
-// IMPORTANT: this file is only half of the model. CHECK constraints, composite foreign keys,
-// partial indexes, triggers and views are NOT expressible in Prisma and live in
-// infra/sql/constraints.sql, which must be re-applied after every migration. See §10.1.
+// IMPORTANT: this file is only half of the model. CHECK constraints, partial indexes, triggers
+// and views are NOT expressible in Prisma, so they live in the SQL of the migration that
+// introduces them — appended by hand to the file `prisma migrate dev --create-only` generates.
+// Nothing is applied from outside the migrations. infra/sql/constraints.reference.sql is a
+// read-only catalogue of what exists and why; nobody runs it.
+//
+// Foreign keys are the exception that is NOT allowed here: Prisma models them, so it
+// reconciles the database against this file and drops any it does not find declared. A key
+// that cannot be declared here does not get smuggled in through SQL. See §10.1.
 
 generator client {
   provider = "prisma-client-js"
@@ -200,7 +206,7 @@ model Worker {
   lastName  String @map("last_name") @db.VarChar(120)
 
   // Never returned by any company-facing route. Reads go through the worker_public_profiles
-  // view (constraints.sql), which does not select these columns.
+  // view (created in the migration SQL), which does not select these columns.
   cpf       String   @unique @db.Char(11)
   birthDate DateTime @map("birth_date") @db.Date
 
@@ -374,7 +380,7 @@ model JobPost {
   reports           Report[]
 
   @@unique([cityId, slug]) // the URL is /vagas/[cidade]/[slug]
-  @@unique([id, companyId]) // supports the composite FK in constraints.sql
+  @@unique([id, companyId]) // vestige of the composite FK that no longer exists — see §10.1
   @@index([cityId, status, role, startsAt])
   @@index([status, expiresAt]) // expiry cron
   @@index([companyId, publishedAt])
@@ -557,7 +563,7 @@ model BlockedJobAttempt {
   @@map("blocked_job_attempts")
 }
 
-// Two nullable FKs plus a CHECK (constraints.sql) instead of a polymorphic target_type +
+// Two nullable FKs plus a CHECK (in the migration SQL) instead of a polymorphic target_type +
 // target_id: the polymorphic version looks tidier and has no referential integrity at all.
 model Report {
   id                String       @id @default(uuid(7)) @db.Uuid

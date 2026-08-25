@@ -883,7 +883,7 @@ exceção · código em inglês, interface em português · datas ISO 8601 UTC n
 11. Confirmação de véspera
 12. **Revisão de toda a copy contra a tabela do §2.1**
 13. Fase 4: API Fastify
-14. Fase 5: Prisma, Postgres, `constraints.sql`, seed de cidades
+14. Fase 5: Prisma, Postgres, constraints dentro das migrations (§10.1), seed de cidades
 15. MinIO, Web Push real, Resend
 16. Deploy, DNS, nginx e certbot
 17. Backup configurado **e restauração testada**

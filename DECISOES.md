@@ -150,7 +150,8 @@ migration que o introduz — `prisma migrate dev --create-only`, o SQL acrescent
 arquivo gerado, e só então aplicado. O `constraints.reference.sql` continua no repositório como
 catálogo do que existe e por quê; ninguém o executa. A rede que sobrou é o teste que roda
 contra o banco e falha se alguma constraint sumiu (tarefa 24.1), e ele ficou mais importante do
-que era.
+que era. Incompleta: ver a entrada de 25/08 — chave composta o Prisma apaga, e as colunas foram
+eliminadas.
 
 **Descartado:** `prisma migrate diff --from-migrations`, que gera o SQL da diferença e permite
 aplicar com `migrate deploy` sem reset. Resolve o sintoma daquela vez e deixa a causa de pé —

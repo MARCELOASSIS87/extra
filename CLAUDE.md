@@ -166,9 +166,9 @@ São dois scripts com nomes diferentes de propósito: um script único com flag 
 
 ### Constraints vivem dentro das migrations
 
-`CHECK`, coluna gerada, índice parcial, trigger, chave estrangeira composta e view **não
-existem no `schema.prisma`**. Elas entram no SQL da própria migration: gere com
-`prisma migrate dev --create-only`, acrescente o SQL no arquivo, aplique.
+`CHECK`, coluna gerada, índice parcial, trigger e view **não existem no `schema.prisma`**.
+Elas entram no SQL da própria migration: gere com `prisma migrate dev --create-only`,
+acrescente o SQL no arquivo, aplique.
 
 **Vale para o que o Prisma não modela.** `CHECK`, trigger, view e índice parcial ele ignora, e
 por isso sobrevivem dentro da migration. Chave estrangeira ele **modela**: reconcilia o banco
@@ -177,8 +177,8 @@ para o `DROP`. FK que o Prisma não consegue declarar não se contrabandeia por 
 no modelo, ou o dado que ela protegia não devia existir.
 
 **Não aplique SQL por fora das migrations.** Foi a primeira tentativa deste projeto e estava
-errada: objetos que o Prisma modela — chave composta acima de tudo — existindo no banco sem
-estar no histórico viram *drift permanente*, e todo `migrate dev` passa a exigir reset do banco.
+errada: objeto existindo no banco sem estar no histórico vira *drift permanente*, e todo
+`migrate dev` passa a exigir reset do banco.
 
 `infra/sql/constraints.reference.sql` é só leitura: o catálogo do que existe e por quê.
 Ninguém o executa.

@@ -74,8 +74,8 @@ vender 30 assinaturas mensais para donos de buffet é mais trabalho que escrever
 Front-end completo rodando contra mock, sem backend nenhum. Fluxo da empresa e do
 trabalhador navegáveis.
 
-Em 22/08/2026 o **modelo de dados foi projetado e escrito** — `schema.prisma`,
-`constraints.sql`, seed de municípios e scripts de migração. Nada foi executado ainda: nenhuma
+Em 22/08/2026 o **modelo de dados foi projetado e escrito** — `schema.prisma`, o SQL
+adicional, seed de municípios e scripts de migração. Nada foi executado ainda: nenhuma
 migration rodou e `apps/api` ainda não existe.
 
 Essa sessão também mudou contratos que o front já implementou (referências, formato de data da
@@ -273,10 +273,9 @@ disso. Foi desenho do Marcelo, e melhor que a proposta anterior de raio fixo, po
 tabela: a regra "contato nunca em payload público" deixou de depender de alguém lembrar de
 escrever o `select` certo.
 
-**Metade das garantias do banco não está no `schema.prisma`.** `CHECK`, trigger, índice parcial
-e chave composta não existem no Prisma — vivem em `infra/sql/constraints.sql`, que precisa ser
-reaplicado depois de cada migration. Constraint que some é falha silenciosa: o banco continua
-aceitando escrita, só parou de proteger.
+**Metade das garantias do banco não está no `schema.prisma`.** Constraints vivem dentro das
+migrations — ver a seção correspondente do `CLAUDE.md`. Constraint que some é falha silenciosa:
+o banco continua aceitando escrita, só parou de proteger.
 
 **Vizinhança entre municípios é tabela pré-calculada**, não PostGIS nem `earthdistance`. Está
 na query mais quente do produto, e município não muda de lugar.
