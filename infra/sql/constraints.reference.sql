@@ -1,16 +1,25 @@
--- Extraqui — infra/sql/constraints.sql
+-- Extraqui — infra/sql/constraints.reference.sql
 --
--- Everything Prisma cannot express: CHECK constraints, composite foreign keys, partial
--- indexes, triggers and views. Roughly half of this model's legal defence lives here.
+-- REFERENCE ONLY. NOBODY RUNS THIS FILE. Nothing applies it: not a script, not the API on
+-- boot, not a deploy step. Running it by hand is the mistake this header exists to prevent.
 --
--- Run AFTER every `prisma migrate dev` / `prisma migrate deploy`:
---     psql "$DATABASE_URL" -f infra/sql/constraints.sql
+-- Everything Prisma cannot express — CHECK constraints, partial indexes, triggers and views —
+-- lives INSIDE the migration that introduces it: `prisma migrate dev --create-only`, the SQL
+-- appended to the generated file, then applied. This file is the catalogue of what exists in
+-- the database and why, in one readable place, because reading it across a growing pile of
+-- migration files is how a constraint stops being noticed.
 --
--- The file is idempotent: it can be run any number of times. It has to be, because
--- `prisma migrate` has been reported to emit DROP statements for hand-made partial indexes it
--- does not recognise. A constraint that disappears is silent — the database keeps accepting
--- writes, it just stopped protecting. Pair this file with a test that asserts every constraint
--- below still exists.
+-- Applying SQL from outside the migrations was this project's first design and it was wrong:
+-- objects Prisma models — composite foreign keys above all — existing in the database without
+-- existing in the migration history read as permanent drift, and every `migrate dev` from then
+-- on demanded a full reset. The composite foreign keys that used to be here are gone entirely:
+-- attendance_records no longer carries the denormalised worker_id / company_id / job_post_id
+-- they protected. The copy was cheaper to delete than the guard was to keep.
+--
+-- A new constraint goes into the migration that introduces it, and then gets copied here.
+-- The safety net is the test that runs against the database and fails when one disappears — a
+-- constraint that vanishes is silent: the database keeps accepting writes, it just stopped
+-- protecting.
 
 BEGIN;
 
@@ -57,31 +66,14 @@ CREATE INDEX job_posts_open_by_city_idx
   WHERE status = 'open';
 
 -- ---------------------------------------------------------------------------
--- 2. Attendance — the denormalised columns must not be able to lie
+-- 2. Attendance
 --
--- attendance_records carries worker_id, company_id and job_post_id copied from the
--- application it belongs to. Without these composite foreign keys those copies age and one
--- day point at the wrong person — on the table that decides whether someone gets called to
--- work. With them, the database refuses.
+-- There are no composite foreign keys here any more, and nothing to guard with them: the
+-- denormalised worker_id / company_id / job_post_id columns are gone from the table. They were
+-- copies of what the application already says, and the keys that kept them honest were objects
+-- Prisma models — outside the migration history they read as permanent drift. The copy was
+-- cheaper to delete than the guard was to keep.
 -- ---------------------------------------------------------------------------
-
-ALTER TABLE attendance_records DROP CONSTRAINT IF EXISTS attendance_matches_application_worker;
-ALTER TABLE attendance_records ADD CONSTRAINT attendance_matches_application_worker
-  FOREIGN KEY (application_id, worker_id)
-  REFERENCES applications (id, worker_id)
-  ON DELETE CASCADE;
-
-ALTER TABLE attendance_records DROP CONSTRAINT IF EXISTS attendance_matches_application_job;
-ALTER TABLE attendance_records ADD CONSTRAINT attendance_matches_application_job
-  FOREIGN KEY (application_id, job_post_id)
-  REFERENCES applications (id, job_post_id)
-  ON DELETE CASCADE;
-
-ALTER TABLE attendance_records DROP CONSTRAINT IF EXISTS attendance_matches_job_company;
-ALTER TABLE attendance_records ADD CONSTRAINT attendance_matches_job_company
-  FOREIGN KEY (job_post_id, company_id)
-  REFERENCES job_posts (id, company_id)
-  ON DELETE CASCADE;
 
 -- pending means not marked yet, and nothing else.
 ALTER TABLE attendance_records DROP CONSTRAINT IF EXISTS attendance_pending_iff_unmarked;
@@ -97,11 +89,17 @@ ALTER TABLE attendance_records ADD CONSTRAINT attendance_dispute_coherent
     AND ((dispute_resolved_at IS NULL) = (dispute_outcome IS NULL))
   );
 
--- Public history reads only settled markings from the last 12 months.
-DROP INDEX IF EXISTS attendance_public_history_idx;
+-- Public history reads only settled markings from the last 12 months. Anchored on
+-- application_id now that worker_id is gone: the worker is reached through the application.
 CREATE INDEX attendance_public_history_idx
-  ON attendance_records (worker_id, marked_at)
+  ON attendance_records (application_id, marked_at)
   WHERE status IN ('present', 'absent');
+
+-- The company's pending queue. Partial because pending is the small, hot slice: once marked, a
+-- row leaves the index and never comes back.
+CREATE INDEX attendance_pending_idx
+  ON attendance_records (status)
+  WHERE status = 'pending';
 
 -- ---------------------------------------------------------------------------
 -- 3. Reports — exactly one target
@@ -244,14 +242,16 @@ SELECT
   w.id AS worker_id,
   count(*) FILTER (WHERE a.status = 'present')                          AS present,
   count(*) FILTER (WHERE a.status = 'absent')                           AS absent,
-  count(DISTINCT a.company_id)
+  count(DISTINCT j.company_id)
     FILTER (WHERE a.status IN ('present', 'absent'))                    AS distinct_companies,
   (count(*) FILTER (WHERE a.status IN ('present', 'absent')) > 0)       AS has_history
 FROM workers w
+LEFT JOIN applications ap ON ap.worker_id = w.id
 LEFT JOIN attendance_records a
-       ON a.worker_id = w.id
+       ON a.application_id = ap.id
       AND a.marked_at > now() - INTERVAL '12 months'
       AND NOT (a.disputed_at IS NOT NULL AND a.dispute_resolved_at IS NULL)
+LEFT JOIN job_posts j ON j.id = ap.job_post_id
 GROUP BY w.id;
 
 COMMIT;

@@ -16,7 +16,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 API_DIR="apps/api"
-SQL_DIR="infra/sql"
 SEED_DIR="infra/seed"
 
 # Name for any migration this run creates. Passing --name is not cosmetic: without it, the
@@ -54,31 +53,30 @@ export PSQL_URL
 # Reads apps/api/prisma/schema.prisma, writes SQL files under prisma/migrations/, applies them.
 # The migration files are what create the tables — the schema is only the description.
 
-echo "==> 1/4 Aplicando migrations (nome: $MIGRATION_NAME)"
+echo "==> 1/3 Aplicando migrations (nome: $MIGRATION_NAME)"
 ( cd "$API_DIR" && pnpm prisma migrate dev --name "$MIGRATION_NAME" )
 
-# --- 2. Constraints ---------------------------------------------------------
-# CHECKs, composite foreign keys, partial indexes, triggers and views. Prisma cannot express
-# any of it, so roughly half of the model's guarantees live here. Idempotent by design, and it
-# must run after EVERY migration: prisma has been known to drop hand-made partial indexes.
+# NOTE: there is no separate constraints step any more. CHECKs, composite foreign keys,
+# partial indexes, triggers and views live INSIDE the migration files, appended by hand to the
+# SQL produced by `prisma migrate dev --create-only`. Applying them from a side file after each
+# migration was the original design and it was wrong: objects Prisma models — composite foreign
+# keys above all — end up in the database without being in the migration history, and
+# `migrate dev` reads that as permanent drift, demanding a full reset on every schema change.
 
-echo "==> 2/4 Aplicando constraints, triggers e views"
-psql "$PSQL_URL" -v ON_ERROR_STOP=1 -f "$SQL_DIR/constraints.sql"
-
-# --- 3. Cities --------------------------------------------------------------
+# --- 2. Cities --------------------------------------------------------------
 # Reference data, not application seed. Skipped when already loaded.
 
-echo "==> 3/4 Carregando municípios"
+echo "==> 2/3 Carregando municípios"
 "$SEED_DIR/load_cities.sh"
 
-# --- 4. Neighbour distances -------------------------------------------------
+# --- 3. Neighbour distances -------------------------------------------------
 # Heavy one-off pass. Skipped when already built.
 
 NEIGHBOURS=$(psql "$PSQL_URL" -tAc "SELECT count(*) FROM city_neighbors")
 if [ "$NEIGHBOURS" -gt 0 ]; then
-  echo "==> 4/4 Vizinhança já calculada ($NEIGHBOURS pares) — pulando"
+  echo "==> 3/3 Vizinhança já calculada ($NEIGHBOURS pares) — pulando"
 else
-  echo "==> 4/4 Calculando distâncias entre municípios (demora alguns minutos)"
+  echo "==> 3/3 Calculando distâncias entre municípios (demora alguns minutos)"
   psql "$PSQL_URL" -v ON_ERROR_STOP=1 -f "$SEED_DIR/build_city_neighbors.sql"
 fi
 

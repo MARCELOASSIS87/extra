@@ -10,16 +10,14 @@
 # routine that has not been restored even once yet. A bad migration running by itself at 2am
 # has no undo. The thirty seconds of typing are the cheapest insurance in this project.
 #
-# What IS automated here is the ORDER — backup, migrate, constraints — because forgetting
-# constraints.sql is the realistic mistake: the database keeps accepting writes, it just
-# stopped protecting.
+# What IS automated here is the ORDER — backup first, migrate second — and the refusal to
+# migrate on top of a backup that came out empty.
 
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 API_DIR="apps/api"
-SQL_DIR="infra/sql"
 SEED_DIR="infra/seed"
 BACKUP_DIR="${BACKUP_DIR:-/backups}"
 PG_CONTAINER="${PG_CONTAINER:-extra-postgres}"
@@ -49,7 +47,7 @@ read -r -p "Digite MIGRAR para continuar: " CONFIRM
 STAMP=$(date +%F-%H%M%S)
 DUMP="$BACKUP_DIR/extra-pre-migration-$STAMP.sql.gz"
 
-echo "==> 1/3 Backup em $DUMP"
+echo "==> 1/2 Backup em $DUMP"
 mkdir -p "$BACKUP_DIR"
 docker exec "$PG_CONTAINER" pg_dump -U extra extra | gzip > "$DUMP"
 
@@ -63,13 +61,8 @@ echo "    backup ok ($SIZE bytes)"
 # --- 2. Migrations ----------------------------------------------------------
 # `migrate deploy`, never `migrate dev`. deploy só aplica o que falta e nunca reseta.
 
-echo "==> 2/3 Aplicando migrations pendentes"
+echo "==> 2/2 Aplicando migrations pendentes"
 ( cd "$API_DIR" && pnpm prisma migrate deploy )
-
-# --- 3. Constraints ---------------------------------------------------------
-
-echo "==> 3/3 Reaplicando constraints, triggers e views"
-psql "$PSQL_URL" -v ON_ERROR_STOP=1 -f "$SQL_DIR/constraints.sql"
 
 # --- Reference data, first run only -----------------------------------------
 

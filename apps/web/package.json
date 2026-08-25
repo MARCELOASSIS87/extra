@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "pnpm -F @extra/shared build && next dev",
+    "build": "pnpm -F @extra/shared build && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "tsx src/lib/api/api.test.ts && tsx src/lib/job-search.test.ts"

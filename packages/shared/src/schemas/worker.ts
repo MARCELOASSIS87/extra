@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { cityIdSchema, workerNotificationPreferencesSchema } from "./city";
 import { jobRoleSchema } from "./job";
+import { phoneE164Schema } from "./phone";
 
 const MIN_AGE = 18;
 
@@ -41,13 +42,6 @@ const rolesSchema = z
   .array(jobRoleSchema)
   .min(1, "Selecione ao menos uma função")
   .max(MAX_WORKER_ROLES, `Selecione no máximo ${MAX_WORKER_ROLES} funções`);
-
-const phoneE164Schema = z
-  .string()
-  .regex(
-    /^\+[1-9]\d{7,14}$/,
-    "Telefone deve estar no formato internacional (+55...)",
-  );
 
 // Etapa 1 — Nome + CPF + data de nascimento (§16.1).
 export const workerStep1IdentitySchema = z.object({

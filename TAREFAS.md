@@ -597,25 +597,27 @@ está lá.
 Suba o Postgres local (docker-compose.dev.yml, porta 5433) e rode
 ./infra/db-setup-local.sh.
 
-O script faz, nesta ordem: prisma migrate dev → infra/sql/constraints.sql →
-carrega os municípios → calcula a tabela de vizinhança. Ele se recusa a
-rodar se a DATABASE_URL não for localhost.
+O script faz, nesta ordem: prisma migrate dev → carrega os municípios →
+calcula a tabela de vizinhança. Ele se recusa a rodar se a DATABASE_URL não
+for localhost.
 
-Não rode prisma migrate à mão fora do script: metade das garantias do modelo
-está no constraints.sql, e ele precisa ser reaplicado depois de CADA
-migration.
+As constraints não são aplicadas por fora: CHECK, chaves compostas, índices
+parciais, triggers e views entram no SQL da própria migration. Gere com
+prisma migrate dev --create-only, acrescente o SQL no arquivo gerado, e só
+então aplique pelo script.
 ```
 **Pronto quando:** o script imprime a contagem de cidades e de pares de vizinhança no fim.
 
 ### 24.1. Teste de constraints
 ```
-Crie um teste que roda contra o banco local e falha se alguma constraint do
-constraints.sql tiver sumido: os CHECK de job_posts e attendance_records, as
-chaves compostas de attendance_records, os quatro triggers e as duas views.
+Crie um teste que roda contra o banco local e falha se alguma constraint
+tiver sumido: os CHECK de job_posts e attendance_records, os índices parciais,
+os quatro triggers e as duas views.
 
-Motivo: há relatos do prisma migrate gerar DROP para índice parcial criado à
-mão. Constraint que some é falha silenciosa — o banco continua aceitando
-escrita, só parou de proteger.
+Motivo: com as constraints dentro das migrations, este teste é a única rede
+que sobrou. Há relatos do prisma migrate gerar DROP para objeto criado à mão
+que ele não reconhece. Constraint que some é falha silenciosa — o banco
+continua aceitando escrita, só parou de proteger.
 ```
 
 ### 24.2. Teste da regra 1

@@ -33,6 +33,14 @@ export interface AttendanceMarkInput {
 
 export interface AttendanceRecord {
   id: string;
+  // Derivados, nunca armazenados — igual ao teto de candidaturas. A tabela
+  // guarda só `applicationId`; estes três chegam pela candidatura, no join
+  // que serve a leitura (attendance_records → applications → job_posts).
+  //
+  // Foram colunas de verdade e deixaram de ser: cópia do que a candidatura já
+  // diz envelhece, e a chave composta que a mantinha honesta era objeto que o
+  // Prisma modela — fora do histórico de migrations virava drift permanente.
+  // Sai a cópia, não a garantia. Quem nunca é gravado não tem como divergir.
   workerId: string;
   companyId: string;
   jobPostId: string;

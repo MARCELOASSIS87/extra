@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { phoneE164Schema } from "./phone";
 
 function isValidCnpj(cnpj: string): boolean {
   if (cnpj.length !== 14 || /^(\d)\1{13}$/.test(cnpj)) return false;
@@ -31,12 +32,7 @@ export const companyRegistrationSchema = z.object({
   legalName: z.string().trim().min(1, "Informe a razão social"),
   tradeName: z.string().trim().min(1, "Informe o nome fantasia"),
   responsibleName: z.string().trim().min(1, "Informe o nome do responsável"),
-  phone: z
-    .string()
-    .regex(
-      /^\+[1-9]\d{7,14}$/,
-      "Telefone deve estar no formato internacional (+55...)",
-    ),
+  phone: phoneE164Schema,
   email: z.email("E-mail inválido"),
   termsAccepted: z
     .boolean()

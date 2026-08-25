@@ -97,7 +97,7 @@ Android de entrada, 4G, dados limitados. Requisito, não detalhe:
 extra/
   apps/web/ · apps/api/
   packages/shared/src/{types,schemas,constants}
-  infra/{docker-compose.yml,nginx.conf,backup.sh,sql/constraints.sql,seed/cities.csv}
+  infra/{docker-compose.yml,nginx.conf,backup.sh,sql/constraints.reference.sql,seed/cities.csv}
   CONTEXTO.md · ESPECIFICACAO-TECNICA-v2_3.md · CLAUDE.md
 ```
 
@@ -277,7 +277,10 @@ export type DisputeOutcome = 'upheld' | 'reversed'
 
 export interface AttendanceRecord {
   id: string
-  applicationId: string          // 1:1 com a candidatura
+  applicationId: string          // 1:1 com a candidatura. A única coluna de ligação
+  // Os três abaixo são DERIVADOS por join a partir de applicationId — nunca colunas:
+  //   attendance_records → applications → workers
+  //   attendance_records → applications → job_posts → companies
   workerId: string
   companyId: string
   jobPostId: string
@@ -293,6 +296,11 @@ export interface AttendanceRecord {
 
 Contestar não apaga a marcação: `status` continua sendo o que a empresa marcou, e a contestação
 vive nos três campos de disputa. "Em contestação" é `disputedAt != null && disputeResolvedAt == null`.
+
+**`workerId`, `companyId` e `jobPostId` não são campos.** São derivados da candidatura, no join
+que serve a leitura. Foram colunas guardadas na tabela e deixaram de ser: cópia do que a
+candidatura já diz envelhece, e o que a mantinha honesta era chave estrangeira composta — ver
+§10.1. Sai a cópia, não a garantia; o que nunca é gravado não tem como divergir.
 
 ### 7.5 Vaga
 
@@ -489,21 +497,33 @@ entram no deploy automático.
 
 ## 10. Banco e migrações
 
-- Dev: `prisma migrate dev` contra o Postgres local (WSL, 5433)
+- Dev: `prisma migrate dev` contra o Postgres local (WSL, 5433) — `--create-only` primeiro
+  quando a migration levar constraint junto (§10.1)
 - Produção: `prisma migrate deploy` na mão no contêiner, **com `pg_dump` antes**
 - **Sem seed de aplicação em produção.** A tabela `cities` é exceção: é dado de referência
 - Índices: ver `schema.prisma`
 
 ### 10.1 O que o Prisma não modela
 
-`CHECK`, coluna gerada, índice parcial, trigger e chave estrangeira composta **não existem no
-`schema.prisma`**. Como boa parte da defesa deste modelo está justamente aí, tudo mora em
-`infra/sql/constraints.sql`, **idempotente**, reaplicado depois de cada migration, com um teste
-que falha se alguma constraint sumiu.
+`CHECK`, coluna gerada, índice parcial, trigger e view **não existem no `schema.prisma`**: os
+CHECK de `job_posts` e `attendance_records`, o alvo único de `reports`, os quatro triggers e as
+duas views. Como boa parte da defesa deste modelo está justamente aí, tudo entra no SQL da
+migration que introduz cada uma — `prisma migrate dev --create-only`, acrescenta o SQL, aplica.
 
-Há relatos de o `prisma migrate` gerar `DROP` para índice parcial criado à mão, por não
-reconhecê-lo. Constraint que some em silêncio é o mesmo tipo de problema que confundir banco de
-dev com produção: o banco continua aceitando escrita, só parou de proteger.
+Isso vale para o que o Prisma **ignora**. O que ele **modela**, ele reconcilia: chave
+estrangeira que não estiver declarada no `schema.prisma` ele apaga, criando uma migration
+sozinho só para o `DROP`. Foi o que aconteceu com as três chaves compostas que amarravam
+`worker_id`, `company_id` e `job_post_id` em `attendance_records` — e a saída não foi declarar
+relação falsa no modelo, foi **eliminar as três colunas**. Os ids chegam por join a partir de
+`applicationId` (§7.4), e o que nunca é gravado não tem como divergir.
+
+Nada é aplicado por fora das migrations: objeto existindo no banco sem estar no histórico é
+*drift permanente*, e todo `migrate dev` passa a exigir reset.
+`infra/sql/constraints.reference.sql` é catálogo, não script.
+
+A rede é um teste que roda contra o banco e falha se alguma constraint sumiu. Constraint que
+some em silêncio é o mesmo tipo de problema que confundir banco de dev com produção: o banco
+continua aceitando escrita, só parou de proteger.
 
 `uuid` v7 gerado na aplicação — o PostgreSQL 17 não tem `uuidv7()` nativo (chegou no 18).
 
@@ -810,6 +830,11 @@ notificação, não de oferta.
 
 Número cru, sem estrela, nota, porcentagem ou barra · **sem cor que sugira julgamento** ·
 contestados em aberto e registros com mais de 12 meses fora da contagem · ao lado, o `shortCode`.
+
+A contagem sai da view `worker_attendance_summary`, que não lê coluna alguma de trabalhador ou
+de empresa em `attendance_records` — não existe nenhuma. Chega ao trabalhador por
+`applications`, e à empresa por `applications → job_posts`; as empresas distintas são contadas
+sobre `job_posts.company_id` (§7.4, §10.1).
 
 **A rampa de entrada:** quem não tem histórico **nunca** exibe `0 presenças`. Exibe
 **"Novo por aqui"**, ao lado do selo de perfil completo. É por isso que `AttendanceSummary`

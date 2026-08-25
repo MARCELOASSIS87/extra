@@ -124,6 +124,11 @@ model Account {
   phoneVerifiedAt DateTime? @map("phone_verified_at") @db.Timestamptz(3)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
+  // Every JWT carries the version it was issued under, and every authenticated request
+  // compares it against this column. Incrementing it invalidates all tokens of that account at
+  // once — without it a leaked 30-day token cannot be killed, only waited out.
+  sessionVersion Int @default(1) @map("session_version")
+
   worker  Worker?
   company Company?
 
@@ -227,7 +232,6 @@ model Worker {
   availability       WorkerAvailability[]
   notificationCities WorkerNotificationCity[]
   applications       Application[]
-  attendanceRecords  AttendanceRecord[]
   pushSubscriptions  PushSubscription[]
   reports            Report[]
 
@@ -305,7 +309,6 @@ model Company {
   account           Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
   city              City                @relation(fields: [cityId], references: [id])
   jobPosts          JobPost[]
-  attendanceRecords AttendanceRecord[]
   blockedAttempts   BlockedJobAttempt[]
   billingEvents     BillingEvent[]
 
@@ -368,7 +371,6 @@ model JobPost {
   company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   city              City               @relation(fields: [cityId], references: [id])
   applications      Application[]
-  attendanceRecords AttendanceRecord[]
   reports           Report[]
 
   @@unique([cityId, slug]) // the URL is /vagas/[cidade]/[slug]
@@ -407,8 +409,6 @@ model Application {
 
   @@unique([jobPostId, workerId])
   @@unique([jobPostId, shortCode])
-  @@unique([id, workerId]) // supports the composite FK in constraints.sql
-  @@unique([id, jobPostId]) // idem
   @@index([workerId, appliedAt])
   @@map("applications")
 }
@@ -419,11 +419,11 @@ model AttendanceRecord {
   id            String @id @default(uuid(7)) @db.Uuid
   applicationId String @unique @map("application_id") @db.Uuid
 
-  // Denormalised for the reading queries. They cannot drift: composite foreign keys in
-  // constraints.sql tie them back to the originating application and job.
-  workerId  String @map("worker_id") @db.Uuid
-  companyId String @map("company_id") @db.Uuid
-  jobPostId String @map("job_post_id") @db.Uuid
+  // No worker_id / company_id / job_post_id here. They used to be denormalised copies kept
+  // honest by composite foreign keys, and those keys are objects Prisma models: living in the
+  // database without living in the migration history read as permanent drift, and every
+  // `migrate dev` demanded a full reset. The copies are gone instead of the guard — the three
+  // ids are reached through `application`, and a value that is never stored cannot age.
 
   status   AttendanceStatus @default(pending)
   markedAt DateTime?        @map("marked_at") @db.Timestamptz(3)
@@ -439,12 +439,10 @@ model AttendanceRecord {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  worker      Worker      @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  jobPost     JobPost     @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
 
-  @@index([workerId, markedAt]) // public history: last 12 months
-  @@index([companyId, status]) // pending markings in the company panel
+  // No @@index([applicationId]): the @unique above already indexes that column, and a second
+  // index on the same column is write cost for nothing. The company's pending queue is served
+  // by a partial index on status, which Prisma cannot express — it lives in the migration SQL.
   @@map("attendance_records")
 }
 
@@ -473,23 +471,45 @@ model PushSubscription {
 }
 
 model PhoneVerificationCode {
-  id        String    @id @default(uuid(7)) @db.Uuid
-  phone     String    @db.VarChar(20)
-  codeHash  String    @map("code_hash") @db.VarChar(64) // hashed: a dump of live codes is mass account takeover
-  attempts  Int       @default(0)
-  requestIp String?   @map("request_ip") @db.Inet
-  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  id    String @id @default(uuid(7)) @db.Uuid
+  phone String @db.VarChar(20)
+
+  // HMAC, not a bare hash: a 6-digit code has a million possibilities, so a plain SHA-256 of a
+  // stolen dump is reversed by a laptop in seconds. The key never leaves the server.
+  codeHash String @map("code_hash") @db.VarChar(64)
+
+  // The polling handle (§11.1). Stored hashed for the same reason as the code: whoever holds
+  // it collects the JWT, so it is a credential, not an id. Opaque and single-use.
+  attemptIdHash String @unique @map("attempt_id_hash") @db.Char(64)
+
+  attempts  Int     @default(0)
+  requestIp String? @map("request_ip") @db.Inet
+
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+
+  // Two distinct moments, on purpose. verifiedAt is the webhook matching the sender's message;
+  // consumedAt is the poll that handed the token over. Collapsing them into one column means
+  // either the token is issued twice or the confirmation is lost between the two requests.
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz(3)
   consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([phone, createdAt]) // rate limit: 3 per phone per hour
+  @@index([requestIp, createdAt]) // rate limit per IP on generation
   @@map("phone_verification_codes")
 }
 
 model WhatsappEvent {
-  id          String    @id @default(uuid(7)) @db.Uuid
-  payload     Json      @db.JsonB // raw Meta payload, kept for audit
-  signatureOk Boolean   @map("signature_ok")
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // Meta redelivers on any timeout, so the same message arrives more than once. The unique
+  // index IS the idempotency: the second insert fails and the handler stops there, instead of
+  // consuming a second verification code with the same message.
+  messageId String? @unique @map("message_id") @db.VarChar(120)
+
+  payload     Json    @db.JsonB // raw Meta payload, kept for audit
+  signatureOk Boolean @map("signature_ok")
   processedAt DateTime? @map("processed_at") @db.Timestamptz(3)
   receivedAt  DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
 

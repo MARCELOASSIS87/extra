@@ -130,6 +130,72 @@ têm cartão de PJ.
 
 ---
 
+## 2026-08-24 — Banco
+
+### Constraints migraram para dentro das migrations
+
+**Sintoma:** `prisma migrate dev` passou a anunciar drift em toda execução e a exigir reset do
+banco antes de fazer qualquer coisa — mesmo sem ninguém ter tocado no `schema.prisma`. Num
+banco de desenvolvimento isso custa a recarga dos municípios e o recálculo da vizinhança; a
+tentação de resolver com um reset por dia é o que assusta.
+
+**Causa:** o `infra/sql/constraints.sql` era aplicado *depois* de cada migration, por fora do
+histórico. Funciona para o que o Prisma ignora — CHECK, trigger, view, índice parcial —, mas as
+chaves estrangeiras compostas de `attendance_records` são objetos que ele **modela**. Existindo
+no banco sem estar em migration nenhuma, ele as lê como divergência e quer desfazê-las. A
+metade da defesa que vivia fora do histórico era exatamente a metade que ele sabia derrubar.
+
+**Correção:** todo CHECK, chave composta, índice parcial, trigger e view entra no SQL da
+migration que o introduz — `prisma migrate dev --create-only`, o SQL acrescentado à mão no
+arquivo gerado, e só então aplicado. O `constraints.reference.sql` continua no repositório como
+catálogo do que existe e por quê; ninguém o executa. A rede que sobrou é o teste que roda
+contra o banco e falha se alguma constraint sumiu (tarefa 24.1), e ele ficou mais importante do
+que era.
+
+**Descartado:** `prisma migrate diff --from-migrations`, que gera o SQL da diferença e permite
+aplicar com `migrate deploy` sem reset. Resolve o sintoma daquela vez e deixa a causa de pé —
+os objetos continuam fora do histórico, e o próximo `migrate dev` reclama de novo. Contornar um
+aviso que está certo é como se descobre, meses depois, que a constraint sumiu.
+
+---
+
+## 2026-08-25 — Banco
+
+### Chave estrangeira não se contrabandeia por SQL
+
+Segundo achado do mesmo problema, e o que completa a entrada de 24/08: pôr o SQL dentro da
+migration resolve para o que o Prisma **ignora**, não para tudo.
+
+**Sintoma:** com as constraints já dentro da migration inicial, o `db-setup-local.sh` aplicou
+tudo — e o Prisma, na mesma execução, **criou e aplicou uma segunda migration sozinho**, com
+três linhas e nada mais: `DROP CONSTRAINT` para as três chaves compostas de
+`attendance_records`. Os 10 CHECK, os índices parciais, os quatro triggers e as duas views não
+foram tocados.
+
+**Causa:** chave estrangeira é objeto que ele **modela**, e o que ele modela ele reconcilia
+contra o `schema.prisma` — não contra o histórico de migrations. Estar dentro da migration não
+protege nada: ele encontra no banco uma FK que o datamodel não declara e a desfaz. A entrada de
+24/08 tratou "dentro da migration" como suficiente para todos os objetos; é suficiente só para
+os que ele não enxerga.
+
+**Correção:** apagar as colunas em vez de declarar relação falsa. `worker_id`, `company_id` e
+`job_post_id` saíram de `attendance_records` — eram cópias do que a candidatura já diz, e a
+única razão das chaves compostas era impedir que envelhecessem. Sem a cópia, não há o que
+proteger. Os três ids continuam no contrato de `packages/shared`, agora derivados por join a
+partir de `applicationId`, no mesmo espírito do `maxApplications`. A view
+`worker_attendance_summary` passou a chegar ao trabalhador por `applications` e à empresa por
+`applications → job_posts`. Depois disso, `migrate dev` responde "Already in sync" com uma
+única migration no histórico.
+
+**Descartado:** declarar as três FKs compostas no `schema.prisma`. Foi testado e o
+`prisma validate` aceita — mas cobra caro: duas relações de `AttendanceRecord` para a mesma
+linha de `Application`, que não significam nada no domínio e alguém vai ter de decifrar, mais
+dois índices únicos redundantes na tabela, já que `application_id` sozinho já é único. Tudo
+isso para proteger um dado que não precisava existir. Quando a defesa custa mais que o dado
+defendido, o dado é que está sobrando.
+
+---
+
 ## Recusado
 
 ### Cobrar do trabalhador quando a plataforma escalar

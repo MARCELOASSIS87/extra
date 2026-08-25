@@ -11,7 +11,7 @@ negócio prevalece.
 > quebrado não dá erro: a tarefa simplesmente roda sem o contexto, em silêncio.
 
 ---
-
+Sempre responda me PT-BR
 ## O produto
 
 Classificado de trabalho extra ("bico"). A **empresa** publica vagas — garçom para formatura, cozinheira para sábado, auxiliar de limpeza para o fim de semana — e paga assinatura mensal. O **trabalhador** se cadastra de graça, escolhe as cidades de que quer receber aviso, e se candidata. As duas partes se acertam fora da plataforma.
@@ -86,7 +86,7 @@ extra/
   packages/
     shared/      tipos + schemas zod + constantes
   infra/
-    sql/         constraints.sql — CHECK, triggers, views, FK compostas
+    sql/         constraints.reference.sql — referência; o SQL real vive nas migrations
     seed/        cities.csv, load_cities.sh, build_city_neighbors.sql
     db-setup-local.sh · db-deploy-prod.sh
     docker-compose.yml, Dockerfiles, nginx, backup.sh
@@ -108,13 +108,13 @@ Next.js 16.3 (App Router) · TypeScript strict · Tailwind + shadcn/ui · react-
 
 Telas primeiro, banco por último — com os contratos definidos antes, para o backend não nascer torto.
 
-| Fase | O quê |
-| ---- | ----- |
-| 1 | Tipos e schemas zod em `packages/shared`. **Nenhuma tela antes disto.** |
-| 2 | Camada mock em `apps/web/src/lib/api/` com as assinaturas definitivas |
-| 3 | Front completo navegável contra o mock — vendável sem uma linha de backend |
-| 4 | API Fastify cumprindo os mesmos contratos. O front não muda |
-| 5 | Prisma e Postgres, schema derivado dos tipos já validados na prática |
+| Fase | O quê                                                                         |
+| ---- | ------------------------------------------------------------------------------ |
+| 1    | Tipos e schemas zod em`packages/shared`. **Nenhuma tela antes disto.** |
+| 2    | Camada mock em`apps/web/src/lib/api/` com as assinaturas definitivas         |
+| 3    | Front completo navegável contra o mock — vendável sem uma linha de backend  |
+| 4    | API Fastify cumprindo os mesmos contratos. O front não muda                   |
+| 5    | Prisma e Postgres, schema derivado dos tipos já validados na prática         |
 
 **Regra de ouro:** nenhum componente importa de `src/mocks/` diretamente. Tudo passa por `src/lib/api/`. Respeitada essa regra, a Fase 4 é troca de implementação, não reescrita.
 
@@ -137,6 +137,7 @@ O mock simula 300–800ms de latência e falha em ~5% das chamadas — os estado
 - Commits convencionais (`feat:`, `fix:`, `chore:`).
 - Segredos só em `.env`. `.env.example` versionado, `.env` nunca.
 - **Nunca commitar.** O commit é sempre do desenvolvedor, com script próprio. Faça a alteração e pare.
+
 ### Orçamento de performance (não é sugestão)
 
 - Bundle JS nas rotas públicas: **< 150 KB** comprimido
@@ -151,10 +152,10 @@ O mock simula 300–800ms de latência e falha em ~5% das chamadas — os estado
 
 Dois bancos distintos. **A confusão entre eles apaga dados reais.**
 
-| Ambiente | Onde | Comando permitido |
-| -------- | ---- | ----------------- |
-| Local | contêiner Postgres no WSL, porta 5433 | `./infra/db-setup-local.sh` |
-| Produção | contêiner no VPS | `./infra/db-deploy-prod.sh` — na mão, e ele faz `pg_dump` antes |
+| Ambiente   | Onde                                   | Comando permitido                                                     |
+| ---------- | -------------------------------------- | --------------------------------------------------------------------- |
+| Local      | contêiner Postgres no WSL, porta 5433 | `./infra/db-setup-local.sh`                                         |
+| Produção | contêiner no VPS                      | `./infra/db-deploy-prod.sh` — na mão, e ele faz `pg_dump` antes |
 
 São dois scripts com nomes diferentes de propósito: um script único com flag é um erro de digitação de distância de rodar `migrate dev` contra dado real. Cada um checa a `DATABASE_URL` e se recusa a rodar no ambiente errado.
 
@@ -163,17 +164,36 @@ São dois scripts com nomes diferentes de propósito: um script único com flag 
 - Migração **não** entra em deploy automático, e não roda quando a API sobe.
 - Sem seed de aplicação em produção. `cities` é exceção: é dado de referência.
 
-### `constraints.sql` não é opcional
+### Constraints vivem dentro das migrations
 
-`CHECK`, coluna gerada, índice parcial, trigger, chave estrangeira composta e view **não existem no `schema.prisma`**. Metade das garantias deste modelo vive em `infra/sql/constraints.sql`, que é **idempotente** e precisa ser reaplicado **depois de cada migration** — os scripts acima já fazem isso na ordem certa.
+`CHECK`, coluna gerada, índice parcial, trigger, chave estrangeira composta e view **não
+existem no `schema.prisma`**. Elas entram no SQL da própria migration: gere com
+`prisma migrate dev --create-only`, acrescente o SQL no arquivo, aplique.
 
-Motivo de não confiar: há relatos do `prisma migrate` gerar `DROP` para índice parcial criado à mão, por não reconhecê-lo. Constraint que some é falha silenciosa — o banco continua aceitando escrita, só parou de proteger. Vale um teste que falhe se alguma constraint sumiu.
+**Vale para o que o Prisma não modela.** `CHECK`, trigger, view e índice parcial ele ignora, e
+por isso sobrevivem dentro da migration. Chave estrangeira ele **modela**: reconcilia o banco
+com o `schema.prisma` e apaga a que não encontrar declarada — criando uma migration sozinho só
+para o `DROP`. FK que o Prisma não consegue declarar não se contrabandeia por SQL: ou ela cabe
+no modelo, ou o dado que ela protegia não devia existir.
 
-E a regra 1 não tem constraint possível, porque é uma **ausência**: a defesa mecânica é um teste no CI que lê o `schema.prisma` e falha se algo com relação a `Worker` ganhar campo monetário.
+**Não aplique SQL por fora das migrations.** Foi a primeira tentativa deste projeto e estava
+errada: objetos que o Prisma modela — chave composta acima de tudo — existindo no banco sem
+estar no histórico viram *drift permanente*, e todo `migrate dev` passa a exigir reset do banco.
+
+`infra/sql/constraints.reference.sql` é só leitura: o catálogo do que existe e por quê.
+Ninguém o executa.
+
+A rede de segurança é um teste que roda contra o banco e falha se alguma constraint sumiu.
+Constraint que some é falha silenciosa — o banco continua aceitando escrita, só parou de
+proteger.
+
+E a regra 1 não tem constraint possível, porque é uma **ausência**: a defesa mecânica é um
+teste no CI que lê o `schema.prisma` e falha se algo com relação a `Worker` ganhar campo
+monetário.
 
 ### Índices que existem desde o início
 
-`job_posts (city_id, status, role, starts_at)` · `job_posts (slug)` por cidade · `job_posts (status, expires_at)` · `applications (job_post_id, worker_id)` único · `accounts (phone)` único · `workers (cpf)` único · `attendance_records (worker_id, marked_at)` · `worker_roles (role, worker_id)` · `worker_availability (weekday, period, worker_id)` · `worker_notification_cities (city_id, worker_id)`
+`job_posts (city_id, status, role, starts_at)` · `job_posts (slug)` por cidade · `job_posts (status, expires_at)` · `applications (job_post_id, worker_id)` único · `accounts (phone)` único · `workers (cpf)` único · `attendance_records (status)` parcial em pending · `worker_roles (role, worker_id)` · `worker_availability (weekday, period, worker_id)` · `worker_notification_cities (city_id, worker_id)`
 
 ---
 
@@ -222,12 +242,36 @@ chat interno · estrelas, notas ou comentários · processamento do pagamento do
 - [ ] Toda copy nova conferida contra o vocabulário proibido
 - [ ] Validação existe no schema compartilhado, não só no formulário
 - [ ] Cidade veio da tabela `cities`, nunca de texto digitado
-- [ ] Mexeu no schema? `constraints.sql` foi reaplicado
+- [ ] Mexeu no schema? A constraint nova entrou no SQL da migration
 - [ ] Estados de carregamento, vazio e erro implementados
 - [ ] Testado em viewport de 360px
 - [ ] Sem `any`, sem `console.log` esquecido, sem segredo no código
 
----
+
+## Segurança
+
+A arquitetura já elimina a falha mais comum de apps gerados por IA: não existe credencial de
+banco no cliente, o Postgres não tem porta pública, e só a API alcança o banco. **Por isso todo
+o risco está na autorização dentro da API.**
+
+**Regra que resume tudo:** toda rota autenticada responde a uma pergunta antes de responder ao
+cliente — *o que prova que este token pode ver este registro?* Se a resposta for "o id veio na
+URL", falta autorização.
+
+- **Posse entra no `where`, nunca num `if` depois da consulta.** `GET /v1/applications/:id/contact`
+  é a única rota que revela um telefone: ela prova, na mesma query, que a candidatura pertence a
+  uma vaga da empresa do token. Tem teste próprio: empresa A pedindo candidatura da empresa B
+  responde 403.
+- **Webhook verifica assinatura antes de olhar o corpo** (`X-Hub-Signature-256` no WhatsApp,
+  equivalente no Asaas) e é idempotente. Webhook forjado do WhatsApp é tomada de conta.
+- **URL assinada é credencial.** Vida curta, nunca em log, nunca em payload público. Bucket
+  `docs` privado, verificado por teste.
+- **Upload pré-assinado limita content-type e tamanho na política, no servidor.**
+- **JWT carrega versão de sessão**, conferida no banco — sem isso não há como matar token vazado.
+- **OTP:** hash, expira em 10 min, uso único, 3 tentativas por telefone por hora e rate limit
+  por IP na geração.
+- **Log vaza igual banco:** redigir `authorization`, `cpf`, `phone`, `code` e URLs assinadas.
+  Erro completo no log, genérico na resposta.
 
 ## Ritmo de trabalho
 
