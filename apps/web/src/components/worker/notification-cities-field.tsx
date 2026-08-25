@@ -1,5 +1,6 @@
 "use client";
 
+import type { WorkerNotificationPreferences } from "@extra/shared/schemas/city";
 import type { NearbyRadiusKm } from "@extra/shared/types/city";
 import { MAX_NOTIFICATION_CITIES } from "@extra/shared/schemas/city";
 import { citiesWithinRadius, cityLabel, listCities } from "@/lib/api/cities";
@@ -20,28 +21,25 @@ const labelClass = "text-sm font-medium";
  * aparece **antes** de ligar, não depois: ninguém aceita o que não viu.
  */
 export function NotificationCitiesField({
-  cityIds,
-  nearbyRadiusKm,
+  value,
   homeCityId,
   onChange,
   error,
 }: {
-  cityIds: string[];
-  nearbyRadiusKm: NearbyRadiusKm | null;
+  /** A mesma forma que o contrato guarda — sem tipo de tela pelo caminho. */
+  value: WorkerNotificationPreferences;
   /** Cidade onde mora: âncora do raio, e a que já vem marcada. */
   homeCityId: string;
-  onChange: (next: {
-    cityIds: string[];
-    nearbyRadiusKm: NearbyRadiusKm | null;
-  }) => void;
+  onChange: (next: WorkerNotificationPreferences) => void;
   error?: string;
 }) {
+  const { notificationCityIds: cityIds, nearbyRadiusKm } = value;
   const atLimit = cityIds.length >= MAX_NOTIFICATION_CITIES;
 
   const toggleCity = (id: string) =>
     onChange({
       nearbyRadiusKm,
-      cityIds: cityIds.includes(id)
+      notificationCityIds: cityIds.includes(id)
         ? cityIds.filter((current) => current !== id)
         : [...cityIds, id],
     });
@@ -100,7 +98,9 @@ export function NotificationCitiesField({
       <NearbyRadiusChoice
         homeCityId={homeCityId}
         value={nearbyRadiusKm}
-        onChange={(next) => onChange({ cityIds, nearbyRadiusKm: next })}
+        onChange={(next) =>
+          onChange({ notificationCityIds: cityIds, nearbyRadiusKm: next })
+        }
       />
     </fieldset>
   );

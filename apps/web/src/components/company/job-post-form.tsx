@@ -410,7 +410,15 @@ function ReachField({
   }, [role]);
 
   const avisados = (key: string) => {
-    if (!counts) return null;
+    // O número é a razão de o campo existir: enquanto não chega, dizer que
+    // está contando é melhor do que a linha aparecer do nada e empurrar tudo.
+    if (!counts) {
+      return (
+        <span className="text-muted-foreground block text-xs">
+          contando quem seria avisado…
+        </span>
+      );
+    }
     const total = counts[key];
     return (
       <span className="text-muted-foreground block text-xs">

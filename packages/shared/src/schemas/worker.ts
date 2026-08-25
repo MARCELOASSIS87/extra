@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { workerNotificationPreferencesSchema } from "./city";
+import { cityIdSchema, workerNotificationPreferencesSchema } from "./city";
 import { jobRoleSchema } from "./job";
 
 const MIN_AGE = 18;
@@ -128,8 +128,8 @@ export const workerProfileUpdateSchema = workerStep2PhoneSchema
   .extend(workerStep4ProfileSchema.shape)
   .extend(workerStep5VideoSchema.shape)
   .extend(workerTermsAcceptanceSchema.shape)
-  // Cidades de aviso e raio: a tela que os coleta é a S4, mas o contrato
-  // já aceita — o PATCH é sempre parcial, então nada quebra até lá.
+  // Cidades de aviso e raio: editáveis em "meu perfil" (§16.2). O PATCH é
+  // sempre parcial, então a tela manda só o que mudou.
   .extend(workerNotificationPreferencesSchema.shape)
   .partial();
 export type WorkerProfileUpdate = z.infer<typeof workerProfileUpdateSchema>;
@@ -147,6 +147,9 @@ export const workerQuickRegistrationSchema = z
       .date("Data de nascimento inválida")
       .refine(isAdult, "Cadastro permitido apenas para maiores de 18 anos"),
     roles: rolesSchema,
+    // Onde mora: âncora do raio de vizinhança e contexto do bairro. Sem isto
+    // o raio de quem é de fora ficaria ancorado na cidade errada.
+    cityId: cityIdSchema,
     neighborhood: z.string().trim().min(1, "Informe o bairro"),
   })
   .extend(workerNotificationPreferencesSchema.shape)

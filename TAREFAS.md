@@ -5,7 +5,7 @@ mudou contratos que o front já implementou. **O bloco S é a dívida que isso g
 antes de mostrar qualquer coisa pro sócio. S1 a S5 já foram: cidade é entidade, a vaga
 guarda instantes, as referências saíram do cadastro, as cidades de aviso existem no cadastro,
 no perfil e na listagem, a publicação mostra o custo de estreitar o alcance e a contestação
-virou dimensão própria, sem apagar a marcação. Falta S7.
+virou dimensão própria, sem apagar a marcação. O S7 fechou a revisão. **Bloco S concluído.**
 
 Depois do bloco S: o sócio no celular, com roteiro de tarefas. Depois disso, contar os
 anunciantes recorrentes nos grupos e pré-vender cinco assinaturas. As Fases 4 e 5 (API, banco,
@@ -479,7 +479,7 @@ Conforme §7.4 da especificação.
 6. Atualize fixtures e a tela de contestação.
 ```
 
-### S7. Revisão de copy e contrato depois do bloco S
+### S7. Revisão de copy e contrato depois do bloco S ✅
 ```
 Percorra as telas afetadas pelo bloco S e confira:
 - toda a copy nova contra o vocabulário proibido do CLAUDE.md

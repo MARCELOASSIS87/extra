@@ -14,7 +14,7 @@ import {
 } from "@extra/shared/schemas/worker";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { CURRENT_TERMS_VERSION } from "@extra/shared/constants/terms";
-import { DEFAULT_CITY_ID } from "@/lib/api/cities";
+import { DEFAULT_CITY_ID, listCities } from "@/lib/api/cities";
 import { NotificationCitiesField } from "@/components/worker/notification-cities-field";
 import { createWorkerQuick } from "@/lib/api/workers";
 import { applyToJob } from "@/lib/api/applications";
@@ -66,6 +66,7 @@ export function WorkerRegistrationForm({ job }: { job: JobPost | null }) {
       phone: "",
       birthDate: "",
       roles: [],
+      cityId: DEFAULT_CITY_ID,
       neighborhood: "",
       // A cidade dele já vem marcada: ele acabou de informá-la, e abrir esta
       // tela em branco é fricção no lugar errado (§16.1).
@@ -78,6 +79,7 @@ export function WorkerRegistrationForm({ job }: { job: JobPost | null }) {
     },
   });
 
+  const cityId = useWatch({ control, name: "cityId" });
   const notificationCityIds = useWatch({
     control,
     name: "notificationCityIds",
@@ -199,6 +201,43 @@ export function WorkerRegistrationForm({ job }: { job: JobPost | null }) {
       </div>
 
       <div className="grid gap-1.5">
+        <label htmlFor="cityId" className={labelClass}>
+          Cidade onde você mora
+        </label>
+        {/* Sempre da tabela `cities`, nunca texto digitado (§7.1). É também a
+            âncora do raio de vizinhança, então precisa ser a cidade dele. */}
+        <select
+          id="cityId"
+          aria-invalid={!!errors.cityId || undefined}
+          className={fieldClass}
+          {...register("cityId", {
+            onChange: (event: { target: { value: string } }) => {
+              // Trocar de cidade recomeça a escolha de aviso na cidade
+              // nova. Manter as assinaturas da cidade antiga seria decidir
+              // pela pessoa; ela reescolhe logo abaixo, na mesma tela.
+              const next = event.target.value;
+              if (!notificationCityIds.includes(next)) {
+                setValue("notificationCityIds", [next], {
+                  shouldValidate: true,
+                });
+              }
+            },
+          })}
+        >
+          {listCities().map((city) => (
+            <option key={city.id} value={city.id}>
+              {city.name} — {city.uf}
+            </option>
+          ))}
+        </select>
+        {errors.cityId && (
+          <p role="alert" className={errorClass}>
+            {errors.cityId.message}
+          </p>
+        )}
+      </div>
+
+      <div className="grid gap-1.5">
         <label htmlFor="neighborhood" className={labelClass}>
           Bairro
         </label>
@@ -217,12 +256,11 @@ export function WorkerRegistrationForm({ job }: { job: JobPost | null }) {
       </div>
 
       <NotificationCitiesField
-        cityIds={notificationCityIds}
-        nearbyRadiusKm={nearbyRadiusKm}
-        homeCityId={DEFAULT_CITY_ID}
+        value={{ notificationCityIds, nearbyRadiusKm }}
+        homeCityId={cityId}
         error={errors.notificationCityIds?.message}
         onChange={(next) => {
-          setValue("notificationCityIds", next.cityIds, {
+          setValue("notificationCityIds", next.notificationCityIds, {
             shouldValidate: true,
           });
           setValue("nearbyRadiusKm", next.nearbyRadiusKm);

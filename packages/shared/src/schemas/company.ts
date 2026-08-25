@@ -21,7 +21,8 @@ function isValidCnpj(cnpj: string): boolean {
 }
 
 // Cadastro da empresa: CNPJ, razão social, responsável, telefone e e-mail (mo-negocio §5).
-// Cidade não entra aqui: MVP de cidade única, atribuída pelo servidor.
+// Cidade não entra aqui: a empresa herda a cidade da conta, atribuída pelo
+// servidor. Quando existir empresa em mais de uma cidade, vira `cityId`.
 export const companyRegistrationSchema = z.object({
   cnpj: z
     .string()

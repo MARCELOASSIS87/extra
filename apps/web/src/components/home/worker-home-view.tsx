@@ -120,7 +120,7 @@ export function WorkerHomeView({
       <section className="mt-10">
         <h2 className="text-xl font-bold tracking-tight">Vagas para você</h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Abertas nas funções e na cidade do seu perfil.
+          Abertas nas suas funções, nas cidades que você escolheu receber.
         </p>
 
         <div className="mt-4">

@@ -86,8 +86,10 @@ export async function listJobs(
  * O opt-in do trabalhador é o teto: quem mora numa vizinha e assinou Poços vê
  * as vagas de Poços; quem não assinou não vê, por mais perto que seja.
  *
- * ponytail: `nearbyRadiusKm` ainda não entra aqui — a tela que o coleta é a
- * S4. Quando entrar, soma as cidades do raio às assinadas.
+ * ponytail: `nearbyRadiusKm` de propósito não entra aqui. O raio governa o
+ * AVISO (§16.2); a listagem é navegação, e o que ela abre é o que a pessoa
+ * assinou na mão. Some as cidades do raio aqui se a lista inicial ficar curta
+ * demais na prática.
  */
 export async function listJobsForMe(
   pageSize = WORKER_HOME_PAGE_SIZE,

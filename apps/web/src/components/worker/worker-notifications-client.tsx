@@ -2,14 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { CircleCheck } from "lucide-react";
-import type { NearbyRadiusKm } from "@extra/shared/types/city";
+import type { WorkerNotificationPreferences } from "@extra/shared/schemas/city";
 import type { Worker } from "@extra/shared/types/worker";
 import { getMyWorkerProfile, updateMyWorkerProfile } from "@/lib/api/workers";
 import { NotificationCitiesField } from "@/components/worker/notification-cities-field";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-type Draft = { cityIds: string[]; nearbyRadiusKm: NearbyRadiusKm | null };
 
 /**
  * A mesma tela do cadastro, editável (§16.2, item 4). Salvar é explícito: em
@@ -20,7 +18,9 @@ export function WorkerNotificationsClient() {
   const [worker, setWorker] = useState<Worker | null | "loading" | "error">(
     "loading",
   );
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraft] = useState<WorkerNotificationPreferences | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -33,7 +33,7 @@ export function WorkerNotificationsClient() {
       setWorker(result.data);
       if (result.data) {
         setDraft({
-          cityIds: result.data.notificationCityIds,
+          notificationCityIds: result.data.notificationCityIds,
           nearbyRadiusKm: result.data.nearbyRadiusKm,
         });
       }
@@ -70,10 +70,7 @@ export function WorkerNotificationsClient() {
     setSaving(true);
     setSaveError(null);
     setSaved(false);
-    const result = await updateMyWorkerProfile({
-      notificationCityIds: draft.cityIds,
-      nearbyRadiusKm: draft.nearbyRadiusKm,
-    });
+    const result = await updateMyWorkerProfile(draft);
     setSaving(false);
     if (!result.ok) return setSaveError(result.error.message);
     setWorker(result.data);
@@ -83,8 +80,7 @@ export function WorkerNotificationsClient() {
   return (
     <div className="mt-6 grid gap-4">
       <NotificationCitiesField
-        cityIds={draft.cityIds}
-        nearbyRadiusKm={draft.nearbyRadiusKm}
+        value={draft}
         homeCityId={worker.cityId}
         onChange={(next) => {
           setSaved(false);
@@ -108,7 +104,7 @@ export function WorkerNotificationsClient() {
       <button
         type="button"
         onClick={save}
-        disabled={saving || draft.cityIds.length === 0}
+        disabled={saving || draft.notificationCityIds.length === 0}
         className={cn(buttonVariants({ size: "lg" }), "h-12 w-full")}
       >
         {saving ? "Salvando..." : "Salvar"}

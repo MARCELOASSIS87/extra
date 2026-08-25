@@ -89,7 +89,8 @@ export const jobPostFormSchema = z.object({
   payNote: z.string().trim().min(1).nullable(),
   address: z.string().trim().min(1, "Informe o endereço"),
   neighborhood: z.string().trim().min(1, "Informe o bairro"),
-  // Cidade não entra no formulário: MVP de cidade única, atribuída pelo servidor.
+  // Cidade não entra no formulário: a vaga herda a cidade da empresa, e o
+  // servidor é quem preenche — texto digitado nunca vira cidade (§7.1).
   requirements: screenedText(z.string().trim().min(1)).nullable(),
   // Sem telefone: a direção do contato é única (§16.5) e quem chama é a
   // empresa, pelo painel, com o número que já está em `Company.phone`.

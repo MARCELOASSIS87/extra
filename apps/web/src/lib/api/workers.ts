@@ -123,7 +123,7 @@ export async function createWorkerQuick(
       phoneVerifiedAt: null,
       cpf: "",
       birthDate: parsed.data.birthDate,
-      cityId: DEFAULT_CITY_ID,
+      cityId: parsed.data.cityId,
       neighborhood: parsed.data.neighborhood,
       notificationCityIds: parsed.data.notificationCityIds,
       nearbyRadiusKm: parsed.data.nearbyRadiusKm,

@@ -3,19 +3,20 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CalendarDays, Clock, MapPin } from "lucide-react";
-import type { JobPost } from "@extra/shared/types/job";
-import type { WorkerApplicantProfile } from "@extra/shared/types/worker";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
+import type { listAttendancePending } from "@/lib/api/attendance";
 import { AttendanceMarkButtons } from "@/components/company/attendance-mark-buttons";
 import { WhatsappButton } from "@/components/contact/whatsapp-button";
 import { formatJobDate, formatTimeRange } from "@/lib/format";
 
-interface PendingItem {
-  job: JobPost;
-  worker: WorkerApplicantProfile;
-  shortCode: string;
-  workerPhone: string;
-}
+/**
+ * Derivado do retorno de `listAttendancePending()`, não redeclarado: forma de
+ * domínio escrita à mão numa tela é a que sai de sincronia em silêncio.
+ */
+type PendingItem = Extract<
+  Awaited<ReturnType<typeof listAttendancePending>>,
+  { ok: true }
+>["data"][number];
 
 const itemKey = (item: PendingItem) => `${item.job.id}:${item.worker.id}`;
 
@@ -77,9 +78,7 @@ export function AttendancePendingList({ items }: { items: PendingItem[] }) {
               <div className="flex items-center gap-2">
                 <Clock aria-hidden="true" className="size-4 shrink-0" />
                 <dt className="sr-only">Horário</dt>
-                <dd>
-                  {formatTimeRange(item.job.startsAt, item.job.endsAt)}
-                </dd>
+                <dd>{formatTimeRange(item.job.startsAt, item.job.endsAt)}</dd>
               </div>
               <div className="flex min-w-0 items-center gap-2">
                 <MapPin aria-hidden="true" className="size-4 shrink-0" />
