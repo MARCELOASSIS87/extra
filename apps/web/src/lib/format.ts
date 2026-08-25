@@ -37,6 +37,15 @@ export function formatJobDate(instant: string): string {
   return dayFormatter.format(new Date(instant));
 }
 
+/**
+ * Data pura ("YYYY-MM-DD"), como a que vem do filtro da listagem. Ancorar ao
+ * meio-dia UTC evita o "volta um dia" — diferente de `formatJobDate`, que
+ * recebe instante e não precisa de âncora nenhuma.
+ */
+export function formatCalendarDate(date: string): string {
+  return dayFormatter.format(new Date(`${date}T12:00:00Z`));
+}
+
 export function formatMoney(value: number): string {
   return moneyFormatter.format(value);
 }

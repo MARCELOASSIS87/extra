@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
+import { Bus, CalendarDays, Clock, MapPin, Users } from "lucide-react";
 import type { Application } from "@extra/shared/types/application";
 import type { JobPost } from "@extra/shared/types/job";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
@@ -42,7 +42,9 @@ export function JobDetailView({
         <div className="flex items-center gap-2">
           <CalendarDays aria-hidden="true" className="size-4 shrink-0" />
           <dt className="sr-only">Data</dt>
-          <dd className="first-letter:uppercase">{formatJobDate(job.startsAt)}</dd>
+          <dd className="first-letter:uppercase">
+            {formatJobDate(job.startsAt)}
+          </dd>
         </div>
         <div className="flex items-center gap-2">
           <Clock aria-hidden="true" className="size-4 shrink-0" />
@@ -61,6 +63,15 @@ export function JobDetailView({
           <dt className="sr-only">Vagas</dt>
           <dd>{job.vacancies === 1 ? "1 vaga" : `${job.vacancies} vagas`}</dd>
         </div>
+        {/* Só quando existe: é o dado que decide se vale viajar, e uma linha
+            dizendo "sem transporte" só ocuparia tela sem ajudar ninguém. */}
+        {job.providesTransport && (
+          <div className="flex items-center gap-2">
+            <Bus aria-hidden="true" className="size-4 shrink-0" />
+            <dt className="sr-only">Transporte</dt>
+            <dd>A empresa leva e traz a equipe</dd>
+          </div>
+        )}
       </dl>
 
       <p className="mt-4 flex flex-wrap items-baseline gap-x-2">

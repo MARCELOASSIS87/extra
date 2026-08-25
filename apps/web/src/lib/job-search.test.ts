@@ -8,12 +8,22 @@ assert.deepEqual(parseJobSearchParams({}), {});
 assert.deepEqual(
   parseJobSearchParams({
     funcao: "garcom",
+    cidade: "3151800",
     data: "2026-09-05",
     bairro: "Centro",
     pagina: "3",
   }),
-  { role: "garcom", date: "2026-09-05", neighborhood: "Centro", page: 3 },
+  {
+    role: "garcom",
+    cityId: "3151800",
+    date: "2026-09-05",
+    neighborhood: "Centro",
+    page: 3,
+  },
 );
+
+// Cidade é id do IBGE, nunca texto: nome digitado na URL é filtro estragado.
+assert.deepEqual(parseJobSearchParams({ cidade: "Poços de Caldas" }), {});
 
 // Campo vazio de formulário GET é "sem filtro", não filtro por string vazia.
 assert.deepEqual(parseJobSearchParams({ funcao: "", bairro: "  " }), {});
@@ -69,5 +79,12 @@ assert.equal(hasActiveFilters({}), false);
 assert.equal(hasActiveFilters({ page: 2 }), false, "paginar não é filtrar");
 assert.equal(hasActiveFilters({ role: "garcom" }), true);
 assert.equal(hasActiveFilters({ neighborhood: "Centro" }), true);
+// Sem cidade na URL a listagem abre nas cidades assinadas, então cidade
+// escolhida é filtro ativo e "Limpar filtros" precisa aparecer.
+assert.equal(hasActiveFilters({ cityId: "3151800" }), true);
+assert.equal(
+  jobsHref({ cityId: "3151800", role: "garcom" }),
+  "/vagas?funcao=garcom&cidade=3151800",
+);
 
 console.log("job-search.test.ts: all checks passed");

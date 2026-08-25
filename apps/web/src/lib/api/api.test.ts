@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import type { ApiResult } from "@extra/shared/types/api";
-import { closeJob, createJob, getJobBySlug, listJobs } from "./jobs";
+import {
+  closeJob,
+  countReachedWorkers,
+  createJob,
+  getJobBySlug,
+  listJobs,
+  listJobsForMe,
+} from "./jobs";
 import {
   applyToJob,
   confirmApplication,
@@ -68,6 +75,94 @@ async function main() {
     "filtro por função",
   );
 
+  // --- cidade: aviso é opt-in, navegar não é (§16.2) ---------------------------
+  const jobCityId = firstPage.items[0].cityId;
+  const otherCity = unwrap(
+    await call(() => listJobs({ cityIds: ["3549102"] })),
+  );
+  assert.equal(otherCity.total, 0, "cidade sem vaga não devolve vaga de outra");
+  const sameCity = unwrap(await call(() => listJobs({ cityIds: [jobCityId] })));
+  assert.ok(
+    sameCity.items.every((job) => job.cityId === jobCityId),
+    "filtro por cidade",
+  );
+
+  // Estreitar a assinatura muda o que É AVISADO, não o que dá para ver: a
+  // listagem pública continua devolvendo tudo, e candidatar-se não checa
+  // cidade nenhuma.
+  const meBefore = store.workers.find((w) => w.id === currentWorkerId);
+  assert.ok(meBefore, "trabalhador atual precisa existir nas fixtures");
+  store.workers = store.workers.map((w) =>
+    w.id === currentWorkerId ? { ...w, notificationCityIds: ["3549102"] } : w,
+  );
+  assert.equal(
+    unwrap(await call(() => listJobsForMe())).total,
+    0,
+    "roteamento respeita as cidades assinadas",
+  );
+  assert.ok(
+    unwrap(await call(() => listJobs())).total > 0,
+    "a listagem pública não é limitada pelas cidades assinadas",
+  );
+  store.workers = store.workers.map((w) =>
+    w.id === currentWorkerId ? meBefore : w,
+  );
+
+  // --- alcance da vaga: só estreita, e nunca fura o opt-in (§16.2) -------------
+  // Cenário montado à mão porque nas fixtures todo mundo assina Poços — o que
+  // faria as três opções de alcance darem o mesmo número.
+  const workersBefore = store.workers;
+  const base = workersBefore[0];
+  const POCOS = "3151800";
+  const CALDAS = "3110301"; // 25 km de Poços
+  store.workers = [
+    // Assinou Poços na mão, morando em Caldas: sempre recebe.
+    {
+      ...base,
+      id: "reach-inscrito",
+      status: "complete",
+      roles: ["garcom"],
+      cityId: CALDAS,
+      notificationCityIds: [POCOS],
+      nearbyRadiusKm: null,
+    },
+    // Chega pela vizinhança: é este que o alcance da empresa filtra.
+    {
+      ...base,
+      id: "reach-vizinho",
+      status: "complete",
+      roles: ["garcom"],
+      cityId: CALDAS,
+      notificationCityIds: [CALDAS],
+      nearbyRadiusKm: 50,
+    },
+  ];
+
+  const reached = (
+    reach: "unrestricted" | "nearby" | "city_only",
+    km: number | null = null,
+  ) =>
+    countReachedWorkers({
+      cityId: POCOS,
+      role: "garcom",
+      reach,
+      reachRadiusKm: km,
+    });
+
+  assert.equal(await reached("unrestricted"), 2, "padrão alcança os dois");
+  assert.equal(
+    await reached("city_only"),
+    1,
+    "inscrição explícita passa por city_only; quem vem pelo raio, não",
+  );
+  assert.equal(
+    await reached("nearby", 10),
+    1,
+    "raio da empresa menor que a distância corta só quem vem pela vizinhança",
+  );
+  assert.equal(await reached("nearby", 50), 2);
+  store.workers = workersBefore;
+
   const bySlug = unwrap(
     await call(() => getJobBySlug(firstPage.items[0].slug)),
   );
@@ -88,6 +183,10 @@ async function main() {
     neighborhood: "Centro",
     requirements: null,
     vacancies: 2,
+    providesTransport: false,
+    // Padrão do formulário: alcance mais aberto possível.
+    reach: "unrestricted" as const,
+    reachRadiusKm: null,
   };
 
   // O filtro do §14.1 vale na camada de dados, não só no formulário.

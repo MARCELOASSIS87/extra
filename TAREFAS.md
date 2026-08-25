@@ -2,8 +2,9 @@
 
 **Progresso: tudo até o PARE AQUI concluído**, mas a sessão de modelagem do banco (22/08)
 mudou contratos que o front já implementou. **O bloco S é a dívida que isso gerou** e vem
-antes de mostrar qualquer coisa pro sócio. S1, S2 e S3 já foram: cidade é entidade, a vaga
-guarda instantes e as referências saíram do cadastro. Falta S4 a S7.
+antes de mostrar qualquer coisa pro sócio. S1 a S5 já foram: cidade é entidade, a vaga
+guarda instantes, as referências saíram do cadastro, as cidades de aviso existem no cadastro,
+no perfil e na listagem, e a publicação mostra o custo de estreitar o alcance. Falta S6 e S7.
 
 Depois do bloco S: o sócio no celular, com roteiro de tarefas. Depois disso, contar os
 anunciantes recorrentes nos grupos e pré-vender cinco assinaturas. As Fases 4 e 5 (API, banco,
@@ -427,7 +428,7 @@ Conforme §16.1 da especificação.
 6. Atualize fixtures e a tela de "o que falta pro perfil completo".
 ```
 
-### S4. Cidades de aviso no cadastro e no perfil
+### S4. Cidades de aviso no cadastro e no perfil ✅
 ```
 Conforme §7.3 e §16.2 da especificação.
 
@@ -444,7 +445,7 @@ Conforme §7.3 e §16.2 da especificação.
    cidade nenhuma.
 ```
 
-### S5. Alcance e transporte na publicação
+### S5. Alcance e transporte na publicação ✅
 ```
 Conforme §7.5 e §16.2 da especificação.
 

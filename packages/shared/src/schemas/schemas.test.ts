@@ -152,6 +152,9 @@ const validJob = {
   neighborhood: "Centro",
   requirements: "Uniforme preto e social",
   vacancies: 3,
+  providesTransport: false,
+  reach: "unrestricted" as const,
+  reachRadiusKm: null,
 };
 assert.equal(jobPostSchema.safeParse(validJob).success, true);
 assert.equal(
@@ -173,6 +176,24 @@ assert.equal(
 assert.equal(
   jobPostSchema.safeParse({ ...validJob, requirements: null }).success,
   true,
+);
+
+// --- Alcance: raio obrigatório em 'nearby', inexistente fora dele (§7.5) ---
+assert.equal(
+  jobPostSchema.safeParse({ ...validJob, reach: "nearby", reachRadiusKm: null })
+    .success,
+  false,
+  "'nearby' sem raio não passa",
+);
+const narrowed = jobPostSchema.parse({
+  ...validJob,
+  reach: "city_only",
+  reachRadiusKm: 50,
+});
+assert.equal(
+  narrowed.reachRadiusKm,
+  null,
+  "raio só existe em 'nearby' — fora dele é normalizado para null",
 );
 
 // --- Data e hora viram instantes em UTC (§7.5) ---

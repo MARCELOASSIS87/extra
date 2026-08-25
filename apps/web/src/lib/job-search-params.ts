@@ -19,6 +19,7 @@ const cleaned = (value: string | string[] | undefined) => {
 export function parseJobSearchParams(params: RawSearchParams): JobFiltersInput {
   const parsed = jobFiltersSchema.safeParse({
     role: cleaned(params[PARAM.role]),
+    cityId: cleaned(params[PARAM.cityId]),
     date: cleaned(params[PARAM.date]),
     neighborhood: cleaned(params[PARAM.neighborhood]),
     page: cleaned(params[PARAM.page]),

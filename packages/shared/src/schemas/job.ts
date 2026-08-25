@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nextCalendarDay, saoPauloToUtc } from "../lib/datetime";
 import { cityIdSchema } from "./city";
-import type { JobRole } from "../types/job";
+import type { JobReach, JobRole } from "../types/job";
 
 const jobRoleValues = [
   "garcom",
@@ -18,6 +18,17 @@ const jobRoleValues = [
 ] as const satisfies readonly JobRole[];
 
 export const jobRoleSchema = z.enum(jobRoleValues);
+
+const jobReachValues = [
+  "unrestricted",
+  "nearby",
+  "city_only",
+] as const satisfies readonly JobReach[];
+
+export const jobReachSchema = z.enum(jobReachValues);
+
+/** Raios oferecidos no formulário. O teto real é o opt-in do trabalhador. */
+export const JOB_REACH_RADIUS_OPTIONS = [25, 50] as const;
 
 const timeSchema = z
   .string()
@@ -83,6 +94,9 @@ export const jobPostFormSchema = z.object({
   // Sem telefone: a direção do contato é única (§16.5) e quem chama é a
   // empresa, pelo painel, com o número que já está em `Company.phone`.
   vacancies: z.number().int().positive("Informe ao menos 1 vaga"),
+  providesTransport: z.boolean(),
+  reach: jobReachSchema,
+  reachRadiusKm: z.number().int().positive().nullable(),
 });
 
 export type JobPostFormInput = z.infer<typeof jobPostFormSchema>;
@@ -97,13 +111,23 @@ export type JobPostFormInput = z.infer<typeof jobPostFormSchema>;
  * o que três campos separados erravam — duração negativa e expiração no dia
  * errado.
  */
-export const jobPostSchema = jobPostFormSchema.transform(
-  ({ date, startTime, endTime, ...rest }) => {
+export const jobPostSchema = jobPostFormSchema
+  .refine((value) => value.reach !== "nearby" || value.reachRadiusKm !== null, {
+    message: "Escolha o raio em quilômetros",
+    path: ["reachRadiusKm"],
+  })
+  .transform(({ date, startTime, endTime, ...rest }) => {
     const startsAt = saoPauloToUtc(date, startTime);
     const endDate = endTime <= startTime ? nextCalendarDay(date) : date;
-    return { ...rest, startsAt, endsAt: saoPauloToUtc(endDate, endTime) };
-  },
-);
+    return {
+      ...rest,
+      // Raio só existe em 'nearby'. Normalizar aqui, em vez de recusar, tira
+      // a combinação inválida do banco sem transformar troca de opção em erro.
+      reachRadiusKm: rest.reach === "nearby" ? rest.reachRadiusKm : null,
+      startsAt,
+      endsAt: saoPauloToUtc(endDate, endTime),
+    };
+  });
 
 export type JobPostInput = z.infer<typeof jobPostSchema>;
 

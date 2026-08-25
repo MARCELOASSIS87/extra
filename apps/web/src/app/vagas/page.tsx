@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { CITY } from "@extra/shared/constants/city";
-import { listJobs, listOpenJobNeighborhoods } from "@/lib/api/jobs";
+import {
+  getDefaultJobCityIds,
+  listJobs,
+  listOpenJobNeighborhoods,
+} from "@/lib/api/jobs";
 import { JobsPageClient } from "@/components/jobs/jobs-page-client";
 import { JobsPageView } from "@/components/jobs/jobs-page-view";
 import { isMockMode } from "@/lib/api/mock";
@@ -24,10 +28,15 @@ export default async function JobsPage({ searchParams }: PageProps<"/vagas">) {
   // Em modo mock o estado mutável está no localStorage — ver app/page.tsx.
   if (isMockMode) return <JobsPageClient filters={filters} today={today} />;
 
+  // Sem `?cidade=` na URL a busca acontece nas cidades assinadas (§16.2):
+  // nunca abrir mostrando o país inteiro.
+  const defaultCityIds = await getDefaultJobCityIds();
+
   // Em paralelo: a lista de bairros não pode somar latência à busca.
   const [result, neighborhoodsResult] = await Promise.all([
     listJobs({
       role: filters.role,
+      cityIds: filters.cityId ? [filters.cityId] : defaultCityIds,
       date: filters.date,
       neighborhood: filters.neighborhood,
       page,
@@ -42,6 +51,7 @@ export default async function JobsPage({ searchParams }: PageProps<"/vagas">) {
       neighborhoods={neighborhoodsResult.ok ? neighborhoodsResult.data : null}
       filters={filters}
       today={today}
+      defaultCityIds={defaultCityIds}
     />
   );
 }

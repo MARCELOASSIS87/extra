@@ -10,7 +10,8 @@ import { JobFilters } from "@/components/jobs/job-filters";
 import { Pagination } from "@/components/jobs/pagination";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatJobDate } from "@/lib/format";
+import { formatCalendarDate } from "@/lib/format";
+import { cityLabel } from "@/lib/api/cities";
 import { hasActiveFilters, jobsHref } from "@/lib/job-search";
 
 /**
@@ -23,11 +24,13 @@ export function JobsPageView({
   neighborhoods,
   filters,
   today,
+  defaultCityIds,
 }: {
   result: ApiResult<Paginated<JobPost>> | null;
   neighborhoods: string[] | null;
   filters: JobFiltersInput;
   today: string;
+  defaultCityIds: string[];
 }) {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
@@ -43,6 +46,7 @@ export function JobsPageView({
           filters={filters}
           neighborhoods={neighborhoods}
           today={today}
+          defaultCityIds={defaultCityIds}
         />
       </div>
 
@@ -58,6 +62,7 @@ export function JobsPageView({
         ) : result.data.items.length === 0 ? (
           <EmptyState
             role={filters.role}
+            cityId={filters.cityId}
             date={filters.date}
             neighborhood={filters.neighborhood}
             filtered={hasActiveFilters(filters)}
@@ -130,11 +135,13 @@ function OutOfRangeState({ filters }: { filters: JobFiltersInput }) {
 
 function EmptyState({
   role,
+  cityId,
   date,
   neighborhood,
   filtered,
 }: {
   role?: string;
+  cityId?: string;
   date?: string;
   neighborhood?: string;
   filtered: boolean;
@@ -142,8 +149,9 @@ function EmptyState({
   // Repete o que foi buscado: sem isso o vazio parece defeito, não resultado.
   const applied = [
     role ? JOB_ROLE_LABELS[role as keyof typeof JOB_ROLE_LABELS] : null,
+    cityId ? cityLabel(cityId) : null,
     neighborhood,
-    date ? formatJobDate(date) : null,
+    date ? formatCalendarDate(date) : null,
   ].filter(Boolean);
 
   return (

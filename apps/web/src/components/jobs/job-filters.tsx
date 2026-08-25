@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils";
 import { saveRole } from "@/lib/filter-preferences";
 import { hasActiveFilters, jobsHref, JOB_SEARCH_PARAM } from "@/lib/job-search";
 import { ROLE_FILTER_OPTIONS } from "@/lib/job-role-icons";
+import { cityLabel, listCities } from "@/lib/api/cities";
 
 /**
- * Os três filtros aplicam na hora, sem botão de confirmar: cada escolha vira
+ * Os quatro filtros aplicam na hora, sem botão de confirmar: cada escolha vira
  * uma URL própria, então o voltar do Android desfaz filtro por filtro.
  *
  * ROLE_FILTER_OPTIONS vem de um import interno, não de prop: cada opção
@@ -22,13 +23,23 @@ export function JobFilters({
   filters,
   neighborhoods,
   today,
+  defaultCityIds,
 }: {
   filters: JobFiltersInput;
   /** `null` quando a busca de bairros falhou — o resto do filtro continua de pé. */
   neighborhoods: string[] | null;
   today: string;
+  /** Onde a listagem abre sem `?cidade=` na URL: as cidades assinadas. */
+  defaultCityIds: string[];
 }) {
   const router = useRouter();
+
+  // Sem cidade na URL o seletor não diz "todas": diz onde a busca está
+  // acontecendo de verdade, senão o resultado parece filtrado por engano.
+  const defaultCityLabel =
+    defaultCityIds.length === 1
+      ? cityLabel(defaultCityIds[0])
+      : `Minhas ${defaultCityIds.length} cidades`;
 
   // Trocar de filtro sempre volta para a primeira página.
   const apply = (patch: Partial<JobFiltersInput>) =>
@@ -41,6 +52,20 @@ export function JobFilters({
       <h2 className="text-base font-bold">Filtrar vagas</h2>
 
       <div className="mt-4 grid gap-3">
+        {/* Cidade primeiro: é o filtro que muda mais resultado de uma vez, e
+            sem ele na URL a listagem já abre nas cidades assinadas (§16.2). */}
+        <FilterSheet
+          label="Cidade"
+          value={filters.cityId ?? null}
+          options={listCities().map((city) => ({
+            value: city.id,
+            label: `${city.name} — ${city.uf}`,
+          }))}
+          onChange={(cityId) => apply({ cityId: cityId ?? undefined })}
+          allOptionLabel={defaultCityLabel}
+          emptyLabel={defaultCityLabel}
+        />
+
         <FilterSheet
           label="Função"
           value={filters.role ?? null}

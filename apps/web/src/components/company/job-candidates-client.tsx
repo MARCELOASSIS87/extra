@@ -42,12 +42,14 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
   if (!state) return <CandidatesSkeleton />;
 
   const { result, company } = state;
-  if (!result.ok && ["job_not_found", "forbidden"].includes(result.error.code)) {
+  if (
+    !result.ok &&
+    ["job_not_found", "forbidden"].includes(result.error.code)
+  ) {
     notFound();
   }
 
-  const companyName =
-    company.ok && company.data ? company.data.tradeName : "";
+  const companyName = company.ok && company.data ? company.data.tradeName : "";
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
@@ -55,8 +57,8 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
         {result.ok ? result.data.job.title : "Candidatos da vaga"}
       </h1>
       <p className="text-muted-foreground mt-2 text-sm">
-        Quem se candidatou, com o código para casar a conversa do WhatsApp.
-        Quem chama é você.
+        Quem se candidatou, com o código para casar a conversa do WhatsApp. Quem
+        chama é você.
       </p>
 
       <div className="mt-6">
@@ -87,7 +89,7 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
         ) : (
           <ul className="grid gap-3">
             {result.data.candidates.map(
-              ({ application, worker, workerPhone }) => (
+              ({ application, worker, workerPhone, distanceKm }) => (
                 // Link esticado: "Ver perfil completo" é um link de verdade,
                 // e o `before` dele cobre o card inteiro — alvo grande, uma
                 // mão, no ônibus. Envolver o card num <a> não dá: botão dentro
@@ -96,7 +98,7 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
                 // camada e continuar clicável e alcançável pelo teclado.
                 <li
                   key={application.id}
-                  className="has-[a:focus-visible]:ring-ring group hover:border-primary/40 relative cursor-pointer rounded-xl border p-4 shadow-sm transition-all duration-150 hover:shadow-md has-[a:focus-visible]:ring-2"
+                  className="has-[a:focus-visible]:ring-ring hover:border-primary/40 group relative cursor-pointer rounded-xl border p-4 shadow-sm transition-all duration-150 hover:shadow-md has-[a:focus-visible]:ring-2"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <p className="min-w-0 truncate font-medium group-hover:underline">
@@ -109,6 +111,14 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
                   <WorkerAttendanceSummary worker={worker} />
                   <p className="text-muted-foreground mt-1 text-sm">
                     {worker.neighborhood}, {worker.cityName}
+                    {/* Fato, não recomendação: distância e transporte na
+                        mesma linha, para a empresa escolher olhando o custo
+                        real do deslocamento (§16.2). */}
+                    {distanceKm !== null &&
+                      distanceKm > 0 &&
+                      ` · cerca de ${distanceKm} km`}
+                    {result.data.job.providesTransport &&
+                      " · transporte fornecido"}
                     {worker.experience && ` · ${worker.experience}`}
                   </p>
 
@@ -128,7 +138,7 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
                         do texto e o card deixaria de ser clicável. */}
                     <Link
                       href={`/empresa/vagas/${jobId}/candidatos/${worker.id}`}
-                      className="text-muted-foreground hover:text-foreground focus-visible:outline-none inline-flex h-8 items-center gap-1 text-sm underline-offset-4 before:absolute before:inset-0 before:rounded-xl hover:underline"
+                      className="text-muted-foreground hover:text-foreground inline-flex h-8 items-center gap-1 text-sm underline-offset-4 before:absolute before:inset-0 before:rounded-xl hover:underline focus-visible:outline-none"
                     >
                       Ver perfil completo
                       <span aria-hidden="true">→</span>

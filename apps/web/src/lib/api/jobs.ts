@@ -1,10 +1,17 @@
 import type { ApiResult, Paginated } from "@extra/shared/types/api";
-import type { JobFilters, JobPost } from "@extra/shared/types/job";
+import type {
+  JobFilters,
+  JobPost,
+  JobReach,
+  JobRole,
+} from "@extra/shared/types/job";
 import {
   jobPostSchema,
   type JobPostFormInput,
 } from "@extra/shared/schemas/job";
 import { saoPauloDate } from "@extra/shared/lib/datetime";
+import { cityDistanceKm, DEFAULT_CITY_ID } from "./cities";
+import { getSessionRole } from "./session";
 import {
   getCurrentCompanyId,
   getCurrentWorkerId,
@@ -42,14 +49,16 @@ export async function listJobs(
   filters: JobFilters = {},
 ): Promise<ApiResult<Paginated<JobPost>>> {
   return withMock(() => {
-    const { role, cityId, neighborhood, date } = filters;
+    const { role, cityIds, neighborhood, date } = filters;
     const page = Math.max(1, filters.page ?? 1);
     const pageSize = Math.max(1, filters.pageSize ?? DEFAULT_PAGE_SIZE);
 
     const matches = store.jobPosts
       .filter((job) => job.status === "open")
       .filter((job) => (role ? job.role === role : true))
-      .filter((job) => (cityId ? job.cityId === cityId : true))
+      .filter((job) =>
+        cityIds && cityIds.length > 0 ? cityIds.includes(job.cityId) : true,
+      )
       .filter((job) =>
         neighborhood ? job.neighborhood === neighborhood : true,
       )
@@ -103,6 +112,68 @@ export async function listJobsForMe(
       pageSize,
     });
   });
+}
+
+/**
+ * Em que cidades a listagem abre quando a URL não pede nenhuma: as que o
+ * trabalhador assinou (§16.2, item 5). Visitante anônimo cai na cidade
+ * âncora — abrir mostrando o país inteiro é o mesmo que não filtrar.
+ *
+ * Fora do `withMock` de propósito, igual a `getSessionRole()`: é leitura
+ * local de sessão, e 300–800ms aqui atrasariam a busca inteira.
+ */
+export async function getDefaultJobCityIds(): Promise<string[]> {
+  if ((await getSessionRole()) !== "worker") return [DEFAULT_CITY_ID];
+
+  const workerId = await getCurrentWorkerId();
+  const worker = store.workers.find((item) => item.id === workerId);
+  const subscribed = worker?.notificationCityIds ?? [];
+  return subscribed.length > 0 ? subscribed : [DEFAULT_CITY_ID];
+}
+
+/**
+ * Quantos trabalhadores seriam avisados de uma vaga com aquele alcance — o
+ * "só Poços: 34 garçons; até 50 km: 121" que a publicação mostra ANTES de
+ * estreitar (§16.2). Sem esse número a empresa decide no escuro e o prejuízo
+ * fica invisível para os dois lados.
+ *
+ * As duas regras que tornam o filtro da empresa seguro estão aqui:
+ * inscrição explícita na cidade da vaga SEMPRE passa (a pessoa declarou que
+ * trabalha ali, pode morar a 80 km e ir de ônibus), e o `reach` filtra apenas
+ * quem está chegando pelo raio de vizinhança.
+ *
+ * ponytail: não filtra disponibilidade de dia e período. O número é apoio de
+ * decisão, e recalcular a cada tecla na data faria ele piscar; o disparo real
+ * reavalia. Entra aqui quando o push existir.
+ */
+export async function countReachedWorkers(input: {
+  cityId: string;
+  role: JobRole;
+  reach: JobReach;
+  reachRadiusKm: number | null;
+}): Promise<number> {
+  const { cityId, role, reach, reachRadiusKm } = input;
+
+  return store.workers.filter((worker) => {
+    if (worker.status !== "complete") return false;
+    if (!worker.roles.includes(role)) return false;
+
+    if (worker.notificationCityIds.includes(cityId)) return true;
+
+    // Chegando pelo raio de vizinhança: só aqui o alcance da empresa filtra.
+    if (worker.nearbyRadiusKm === null) return false;
+    const distance = cityDistanceKm(worker.cityId, cityId);
+    if (distance === null || distance > worker.nearbyRadiusKm) return false;
+
+    switch (reach) {
+      case "unrestricted":
+        return true;
+      case "city_only":
+        return worker.cityId === cityId;
+      case "nearby":
+        return reachRadiusKm !== null && distance <= reachRadiusKm;
+    }
+  }).length;
 }
 
 export async function getJobBySlug(

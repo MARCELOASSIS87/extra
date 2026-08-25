@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CircleCheck } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import type { JobPost } from "@extra/shared/types/job";
 import type { Worker } from "@extra/shared/types/worker";
 import {
@@ -14,6 +14,8 @@ import {
 } from "@extra/shared/schemas/worker";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { CURRENT_TERMS_VERSION } from "@extra/shared/constants/terms";
+import { DEFAULT_CITY_ID } from "@/lib/api/cities";
+import { NotificationCitiesField } from "@/components/worker/notification-cities-field";
 import { createWorkerQuick } from "@/lib/api/workers";
 import { applyToJob } from "@/lib/api/applications";
 import { DEMO_ROLE_COOKIE, DEMO_WORKER_COOKIE } from "@/lib/api/mock";
@@ -54,6 +56,8 @@ export function WorkerRegistrationForm({ job }: { job: JobPost | null }) {
     register,
     handleSubmit,
     setError,
+    control,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<WorkerQuickRegistrationInput>({
     resolver: zodResolver(workerQuickRegistrationSchema),
@@ -63,10 +67,22 @@ export function WorkerRegistrationForm({ job }: { job: JobPost | null }) {
       birthDate: "",
       roles: [],
       neighborhood: "",
+      // A cidade dele já vem marcada: ele acabou de informá-la, e abrir esta
+      // tela em branco é fricção no lugar errado (§16.1).
+      notificationCityIds: [DEFAULT_CITY_ID],
+      // Raio desligado por padrão — o ajuste mais aberto é o das cidades, não
+      // o de gastar permissão de notificação que ninguém pediu.
+      nearbyRadiusKm: null,
       termsVersion: CURRENT_TERMS_VERSION,
       termsAccepted: false,
     },
   });
+
+  const notificationCityIds = useWatch({
+    control,
+    name: "notificationCityIds",
+  });
+  const nearbyRadiusKm = useWatch({ control, name: "nearbyRadiusKm" });
 
   if (registered) return <SuccessState worker={registered} />;
 
@@ -199,6 +215,19 @@ export function WorkerRegistrationForm({ job }: { job: JobPost | null }) {
           </p>
         )}
       </div>
+
+      <NotificationCitiesField
+        cityIds={notificationCityIds}
+        nearbyRadiusKm={nearbyRadiusKm}
+        homeCityId={DEFAULT_CITY_ID}
+        error={errors.notificationCityIds?.message}
+        onChange={(next) => {
+          setValue("notificationCityIds", next.cityIds, {
+            shouldValidate: true,
+          });
+          setValue("nearbyRadiusKm", next.nearbyRadiusKm);
+        }}
+      />
 
       <div className="grid gap-1.5">
         <label className="flex items-start gap-2 text-sm">

@@ -1,17 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CircleCheck, ShieldAlert } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import type { JobPost } from "@extra/shared/types/job";
 import {
   jobPostFormSchema,
+  JOB_REACH_RADIUS_OPTIONS,
   type JobPostFormInput,
 } from "@extra/shared/schemas/job";
+import type { JobReach } from "@extra/shared/types/job";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
-import { createJob } from "@/lib/api/jobs";
+import { countReachedWorkers, createJob } from "@/lib/api/jobs";
+import { cityName, DEFAULT_CITY_ID } from "@/lib/api/cities";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +50,8 @@ export function JobPostForm() {
     register,
     handleSubmit,
     setError,
+    control,
+    setValue,
     formState: { errors, isSubmitting },
     // Três campos, do jeito que a empresa pensa. Os dois instantes do
     // contrato saem do `.transform()` de `jobPostSchema`, no envio.
@@ -65,8 +70,16 @@ export function JobPostForm() {
       neighborhood: "",
       requirements: null,
       vacancies: 1,
+      providesTransport: false,
+      // Nasce no mais aberto: padrão restritivo mata vaga em silêncio (§7.5).
+      reach: "unrestricted",
+      reachRadiusKm: null,
     },
   });
+
+  const role = useWatch({ control, name: "role" });
+  const reach = useWatch({ control, name: "reach" });
+  const reachRadiusKm = useWatch({ control, name: "reachRadiusKm" });
 
   if (published) return <SuccessState job={published} />;
 
@@ -280,6 +293,32 @@ export function JobPostForm() {
         <FieldError message={errors.requirements?.message} />
       </div>
 
+      <div className="grid gap-1.5">
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="border-input mt-0.5 size-4 shrink-0 rounded"
+            {...register("providesTransport")}
+          />
+          <span>A empresa leva e traz a equipe</span>
+        </label>
+        <p className="text-muted-foreground text-xs">
+          É o que faz o bico de outra cidade valer a pena. Aparece no anúncio e
+          no aviso.
+        </p>
+      </div>
+
+      <ReachField
+        value={reach}
+        radiusKm={reachRadiusKm}
+        role={role}
+        onChange={(next) => {
+          setValue("reach", next.reach);
+          setValue("reachRadiusKm", next.radiusKm, { shouldValidate: true });
+        }}
+        error={errors.reachRadiusKm?.message}
+      />
+
       {errors.root && <FieldError message={errors.root.message} />}
 
       <button
@@ -307,5 +346,132 @@ function SuccessState({ job }: { job: JobPost }) {
         Ver minhas vagas
       </Link>
     </div>
+  );
+}
+
+const REACH_LABELS: Record<JobReach, string> = {
+  unrestricted: "Qualquer pessoa que aceite receber vagas daqui",
+  nearby: "Só quem está a até um raio daqui",
+  city_only: `Só quem mora em ${cityName(DEFAULT_CITY_ID)}`,
+};
+
+/**
+ * Alcance com o custo de estreitar na tela (§16.2). Sem o número ao lado de
+ * cada opção a empresa marca "só minha cidade" por precaução, ninguém aparece
+ * e ela conclui que o site não funciona sem nunca saber por quê.
+ *
+ * O alcance só estreita: quem assinou esta cidade na mão recebe de qualquer
+ * jeito, e é por isso que o campo não precisa de teto.
+ */
+function ReachField({
+  value,
+  radiusKm,
+  role,
+  onChange,
+  error,
+}: {
+  value: JobReach;
+  radiusKm: number | null;
+  role: JobPostFormInput["role"];
+  onChange: (next: { reach: JobReach; radiusKm: number | null }) => void;
+  error?: string;
+}) {
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const options: { key: string; reach: JobReach; radius: number | null }[] = [
+      { key: "unrestricted", reach: "unrestricted", radius: null },
+      ...JOB_REACH_RADIUS_OPTIONS.map((km) => ({
+        key: `nearby:${km}`,
+        reach: "nearby" as const,
+        radius: km,
+      })),
+      { key: "city_only", reach: "city_only", radius: null },
+    ];
+
+    Promise.all(
+      options.map(async (option) => [
+        option.key,
+        await countReachedWorkers({
+          cityId: DEFAULT_CITY_ID,
+          role,
+          reach: option.reach,
+          reachRadiusKm: option.radius,
+        }),
+      ]),
+    ).then((entries) => {
+      if (active) setCounts(Object.fromEntries(entries));
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [role]);
+
+  const avisados = (key: string) => {
+    if (!counts) return null;
+    const total = counts[key];
+    return (
+      <span className="text-muted-foreground block text-xs">
+        {total === 1 ? "1 pessoa avisada" : `${total} pessoas avisadas`}
+      </span>
+    );
+  };
+
+  const option = (
+    key: string,
+    label: string,
+    checked: boolean,
+    onSelect: () => void,
+  ) => (
+    <label
+      key={key}
+      className="has-checked:border-primary has-checked:bg-secondary flex items-start gap-2 rounded-lg border p-3 text-sm"
+    >
+      <input
+        type="radio"
+        name="reach"
+        checked={checked}
+        onChange={onSelect}
+        className="mt-0.5 size-4 shrink-0"
+      />
+      <span>
+        {label}
+        {avisados(key)}
+      </span>
+    </label>
+  );
+
+  return (
+    <fieldset className="grid gap-2">
+      <legend className={labelClass}>Quem recebe o aviso desta vaga</legend>
+      <p className="text-muted-foreground text-xs">
+        Estreitar reduz quem é avisado. Ver a vaga e se candidatar continua
+        aberto a qualquer pessoa.
+      </p>
+
+      {option(
+        "unrestricted",
+        REACH_LABELS.unrestricted,
+        value === "unrestricted",
+        () => onChange({ reach: "unrestricted", radiusKm: null }),
+      )}
+
+      {JOB_REACH_RADIUS_OPTIONS.map((km) =>
+        option(
+          `nearby:${km}`,
+          `Até ${km} km de ${cityName(DEFAULT_CITY_ID)}`,
+          value === "nearby" && radiusKm === km,
+          () => onChange({ reach: "nearby", radiusKm: km }),
+        ),
+      )}
+
+      {option("city_only", REACH_LABELS.city_only, value === "city_only", () =>
+        onChange({ reach: "city_only", radiusKm: null }),
+      )}
+
+      <FieldError message={error} />
+    </fieldset>
   );
 }

@@ -149,6 +149,7 @@ export const workerQuickRegistrationSchema = z
     roles: rolesSchema,
     neighborhood: z.string().trim().min(1, "Informe o bairro"),
   })
+  .extend(workerNotificationPreferencesSchema.shape)
   .extend(workerTermsAcceptanceSchema.shape);
 export type WorkerQuickRegistrationInput = z.infer<
   typeof workerQuickRegistrationSchema

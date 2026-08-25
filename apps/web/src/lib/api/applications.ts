@@ -17,12 +17,16 @@ import {
   toPublicProfile,
   withMock,
 } from "./mock";
+import { cityDistanceKm } from "./cities";
 import { err, ok } from "./result";
 
 /** POST /v1/jobs/:id/applications — 409 se atingiu maxApplications (§16.5). */
 export async function applyToJob(
   jobId: string,
 ): Promise<ApiResult<Application>> {
+  // Não há checagem de cidade aqui, e é de propósito (§16.2): cidade assinada
+  // decide quem recebe AVISO. Ver e se candidatar é livre — quem achou a vaga
+  // sabe se consegue chegar melhor do que a plataforma.
   const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const job = store.jobPosts.find((item) => item.id === jobId);
@@ -228,6 +232,12 @@ export async function listJobCandidates(jobId: string): Promise<
       application: Application;
       worker: WorkerApplicantProfile;
       workerPhone: string;
+      /**
+       * Entre os centros do município dele e o da vaga. `null` quando o par
+       * não está na tabela de vizinhança (acima de 100 km) — a tela escreve
+       * "cerca de", nunca um número exato.
+       */
+      distanceKm: number | null;
       presentWithCompany: number;
       attendanceStatus: AttendanceStatus | null;
     }[];
@@ -242,19 +252,16 @@ export async function listJobCandidates(jobId: string): Promise<
     }
 
     const candidates = store.applications
-      .filter(
-        (item) => item.jobPostId === jobId && item.status !== "withdrawn",
-      )
+      .filter((item) => item.jobPostId === jobId && item.status !== "withdrawn")
       .flatMap((application) => {
-        const worker = store.workers.find(
-          (w) => w.id === application.workerId,
-        );
+        const worker = store.workers.find((w) => w.id === application.workerId);
         if (!worker) return [];
         return [
           {
             application,
             worker: toApplicantProfile(worker),
             workerPhone: worker.phone,
+            distanceKm: cityDistanceKm(worker.cityId, job.cityId),
             presentWithCompany: store.attendanceRecords.filter(
               (record) =>
                 record.workerId === worker.id &&

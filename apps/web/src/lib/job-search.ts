@@ -12,6 +12,7 @@ export const HOME_PAGE_SIZE = 12;
  */
 const PARAM = {
   role: "funcao",
+  cityId: "cidade",
   date: "data",
   neighborhood: "bairro",
   page: "pagina",
@@ -26,6 +27,7 @@ export function jobsHref(
   const query = new URLSearchParams();
 
   if (merged.role) query.set(PARAM.role, merged.role);
+  if (merged.cityId) query.set(PARAM.cityId, merged.cityId);
   if (merged.date) query.set(PARAM.date, merged.date);
   if (merged.neighborhood) query.set(PARAM.neighborhood, merged.neighborhood);
   // Página 1 é o padrão: não suja a URL nem cria duas URLs para o mesmo conteúdo.
@@ -36,8 +38,14 @@ export function jobsHref(
   return queryString ? `/vagas?${queryString}` : "/vagas";
 }
 
+/**
+ * Cidade conta como filtro ativo: sem ela na URL a listagem abre nas cidades
+ * assinadas, e "Limpar filtros" precisa poder voltar para esse padrão.
+ */
 export function hasActiveFilters(filters: JobFiltersInput): boolean {
-  return Boolean(filters.role || filters.date || filters.neighborhood);
+  return Boolean(
+    filters.role || filters.date || filters.neighborhood || filters.cityId,
+  );
 }
 
 export const JOB_SEARCH_PARAM = PARAM;
