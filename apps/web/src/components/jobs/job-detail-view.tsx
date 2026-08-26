@@ -1,6 +1,6 @@
 import { Bus, CalendarDays, Clock, MapPin, Users } from "lucide-react";
 import type { Application } from "@extra/shared/types/application";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { JobApplyPanel } from "@/components/jobs/job-apply-panel";
 import { ShareJobButton } from "@/components/jobs/share-job-button";
@@ -18,7 +18,7 @@ export function JobDetailView({
   myApplication,
   isWorker,
 }: {
-  job: JobPost;
+  job: PublicJobPost;
   myApplication: Application | null;
   isWorker: boolean;
 }) {

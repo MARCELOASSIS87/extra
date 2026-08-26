@@ -18,6 +18,11 @@ export function cityName(cityId: string): string {
   return byId.get(cityId)?.name ?? "";
 }
 
+/** O slug que a URL do detalhe carrega: /vagas/[cidade]/[slug]. */
+export function citySlug(cityId: string): string {
+  return byId.get(cityId)?.slug ?? "";
+}
+
 /** "Poços de Caldas — MG". Nome de município se repete entre estados. */
 export function cityLabel(cityId: string): string {
   const city = byId.get(cityId);

@@ -1,7 +1,7 @@
 "use client";
 
 import { Share2 } from "lucide-react";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import {
   formatJobWeekdayAndDate,
@@ -12,7 +12,7 @@ import { SITE_URL } from "@/lib/site";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-function buildShareMessage(job: JobPost): string {
+function buildShareMessage(job: PublicJobPost): string {
   const { weekday, shortDate } = formatJobWeekdayAndDate(job.startsAt);
   const vacancies = job.vacancies === 1 ? "1 vaga" : `${job.vacancies} vagas`;
 
@@ -20,7 +20,7 @@ function buildShareMessage(job: JobPost): string {
     `Vaga de ${JOB_ROLE_LABELS[job.role]} — ${job.title}`,
     `${weekday} ${shortDate}, ${formatTimeRange(job.startsAt, job.endsAt)} — ${formatMoney(job.payAmount)}`,
     vacancies,
-    `${SITE_URL}/vagas/${job.slug}`,
+    `${SITE_URL}/vagas/${job.citySlug}/${job.slug}`,
   ].join("\n");
 }
 
@@ -38,7 +38,7 @@ export function ShareJobButton({
   job,
   compact = false,
 }: {
-  job: JobPost;
+  job: PublicJobPost;
   compact?: boolean;
 }) {
   const share = async () => {

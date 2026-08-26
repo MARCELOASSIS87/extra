@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CalendarDays, Clock, MapPin } from "lucide-react";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { formatJobDate, formatMoney, formatTimeRange } from "@/lib/format";
 import { JOB_ROLE_ICONS } from "@/lib/job-role-icons";
@@ -13,7 +13,7 @@ import { ShareJobButton } from "@/components/jobs/share-job-button";
  * do `<Link>`, sobreposto no canto (botão dentro de link não é HTML válido e
  * ainda navegaria no clique) — `relative` no `<li>` + `absolute` nele.
  */
-export function JobCard({ job }: { job: JobPost }) {
+export function JobCard({ job }: { job: PublicJobPost }) {
   const RoleIcon = JOB_ROLE_ICONS[job.role];
 
   return (
@@ -23,7 +23,7 @@ export function JobCard({ job }: { job: JobPost }) {
     // na horizontal em telas estreitas.
     <li className="relative min-w-0">
       <Link
-        href={`/vagas/${job.slug}`}
+        href={`/vagas/${job.citySlug}/${job.slug}`}
         className="hover:border-primary/30 focus-visible:ring-ring block rounded-xl border p-4 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2"
       >
         <div className="flex items-start justify-between gap-3 pr-9">

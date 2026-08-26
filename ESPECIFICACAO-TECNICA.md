@@ -351,6 +351,10 @@ Com três campos, a duração dá negativo e a expiração erra o dia.
 
 **`maxApplications` não é campo.** É `vacancies * 3`, derivado.
 
+**Vaga vencida é DERIVADA de `expiresAt` na leitura**, nunca lida da coluna: o job de
+expiração só materializa `status` para consulta, e não é a fonte da verdade — entre o instante
+vencer e o job rodar, quem responde a pergunta é `expiresAt`.
+
 **`providesTransport`** existe porque é o dado que decide se vale viajar. Junto com a cidade,
 a pessoa decide sozinha — a plataforma informa, não escolhe por ninguém.
 

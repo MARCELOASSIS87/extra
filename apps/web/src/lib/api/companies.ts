@@ -1,6 +1,7 @@
 import type { ApiResult } from "@extra/shared/types/api";
 import type { Company } from "@extra/shared/types/company";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
+import { toPublicJobPost } from "./jobs";
 import {
   companyRegistrationSchema,
   type CompanyRegistrationInput,
@@ -57,13 +58,14 @@ export async function createCompany(
 }
 
 /** Painel da empresa: as vagas dela em qualquer estado, mais recentes antes. */
-export async function listMyCompanyJobs(): Promise<ApiResult<JobPost[]>> {
+export async function listMyCompanyJobs(): Promise<ApiResult<PublicJobPost[]>> {
   const companyId = await getCurrentCompanyId();
   return withMock(() =>
     ok(
       store.jobPosts
         .filter((job) => job.companyId === companyId)
-        .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)),
+        .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+        .map(toPublicJobPost),
     ),
   );
 }

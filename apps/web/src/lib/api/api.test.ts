@@ -167,11 +167,21 @@ async function main() {
   assert.equal(await reached("nearby", 50), 2);
   store.workers = workersBefore;
 
+  const first = firstPage.items[0];
   const bySlug = unwrap(
-    await call(() => getJobBySlug(firstPage.items[0].slug)),
+    await call(() => getJobBySlug(first.citySlug, first.slug)),
   );
-  assert.equal(bySlug?.id, firstPage.items[0].id);
-  assert.equal(unwrap(await call(() => getJobBySlug("nao-existe"))), null);
+  assert.equal(bySlug?.id, first.id);
+  assert.equal(
+    unwrap(await call(() => getJobBySlug(first.citySlug, "nao-existe"))),
+    null,
+  );
+  // O slug só é único DENTRO da cidade: a cidade errada não pode achar a vaga.
+  assert.equal(
+    unwrap(await call(() => getJobBySlug("cidade-que-nao-existe", first.slug))),
+    null,
+    "slug certo em cidade errada não devolve vaga",
+  );
 
   // --- publicação de vaga -----------------------------------------------------
   const validJob = {
@@ -215,7 +225,8 @@ async function main() {
   assert.equal(created.companyId, currentCompanyId);
   assert.ok(created.slug.startsWith("garcom-para-evento-de-teste-"));
   assert.ok(
-    unwrap(await call(() => getJobBySlug(created.slug)))?.id === created.id,
+    unwrap(await call(() => getJobBySlug(created.citySlug, created.slug)))
+      ?.id === created.id,
     "vaga criada aparece na busca por slug",
   );
   assert.ok(

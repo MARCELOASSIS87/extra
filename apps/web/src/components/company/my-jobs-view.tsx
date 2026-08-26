@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Briefcase, RefreshCw, WifiOff } from "lucide-react";
 import type { ApiResult } from "@extra/shared/types/api";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
 import { JobCard } from "@/components/jobs/job-card";
 import { JobListSkeleton } from "@/components/jobs/job-list-skeleton";
 import { buttonVariants } from "@/components/ui/button";
@@ -11,7 +11,11 @@ import { cn } from "@/lib/utils";
  * Tudo o que a empresa publicou, em qualquer estado — mesma
  * `listMyCompanyJobs()` que o painel usa. `null` é "ainda carregando".
  */
-export function MyJobsView({ result }: { result: ApiResult<JobPost[]> | null }) {
+export function MyJobsView({
+  result,
+}: {
+  result: ApiResult<PublicJobPost[]> | null;
+}) {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-start justify-between gap-3">

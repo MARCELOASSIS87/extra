@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ApiResult, Paginated } from "@extra/shared/types/api";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
 import type { JobFiltersInput } from "@extra/shared/schemas/job";
 import {
   getDefaultJobCityIds,
@@ -21,9 +21,9 @@ export function JobsPageClient({
   filters: JobFiltersInput;
   today: string;
 }) {
-  const [result, setResult] = useState<ApiResult<Paginated<JobPost>> | null>(
-    null,
-  );
+  const [result, setResult] = useState<ApiResult<
+    Paginated<PublicJobPost>
+  > | null>(null);
   const [neighborhoods, setNeighborhoods] = useState<string[] | null>(null);
   // Enquanto não sabe quais são as cidades assinadas, assume a âncora: é o
   // mesmo padrão de quem não tem cadastro, e evita um segundo esqueleto.

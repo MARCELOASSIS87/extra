@@ -3,7 +3,8 @@ import type {
   AttendanceMarkInput,
   AttendanceRecord,
 } from "@extra/shared/types/attendance";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
+import { toPublicJobPost } from "./jobs";
 import type { WorkerApplicantProfile } from "@extra/shared/types/worker";
 import {
   getCurrentCompanyId,
@@ -89,7 +90,7 @@ export async function markAttendance(
 export async function listAttendancePending(): Promise<
   ApiResult<
     {
-      job: JobPost;
+      job: PublicJobPost;
       worker: WorkerApplicantProfile;
       shortCode: string;
       workerPhone: string;
@@ -115,7 +116,7 @@ export async function listAttendancePending(): Promise<
         if (!worker) return [];
         return [
           {
-            job,
+            job: toPublicJobPost(job),
             worker: toApplicantProfile(worker),
             shortCode: item.shortCode,
             workerPhone: worker.phone,

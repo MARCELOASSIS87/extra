@@ -4,6 +4,7 @@ import type {
   JobPost,
   JobReach,
   JobRole,
+  PublicJobPost,
 } from "@extra/shared/types/job";
 import {
   jobPostSchema,
@@ -11,7 +12,12 @@ import {
 } from "@extra/shared/schemas/job";
 import { saoPauloDate } from "@extra/shared/lib/datetime";
 import { maxApplicationsFor } from "@extra/shared/lib/job";
-import { cityDistanceKm, DEFAULT_CITY_ID } from "./cities";
+import {
+  cityDistanceKm,
+  cityName,
+  citySlug as citySlugOf,
+  DEFAULT_CITY_ID,
+} from "./cities";
 import { getSessionRole } from "./session";
 import {
   getCurrentCompanyId,
@@ -36,6 +42,21 @@ const slugify = (value: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
+/**
+ * As rotas públicas de leitura devolvem `PublicJobPost`: a vaga mais os nomes
+ * que a API resolve por join (§8). O mock faz o mesmo join na mão, contra as
+ * mesmas coleções — sem isto a Fase 4 deixaria de ser troca de implementação,
+ * porque o front receberia da API um campo que o mock nunca teve.
+ */
+export const toPublicJobPost = (job: JobPost): PublicJobPost => ({
+  ...job,
+  companyName:
+    store.companies.find((company) => company.id === job.companyId)
+      ?.tradeName ?? "",
+  cityName: cityName(job.cityId),
+  citySlug: citySlugOf(job.cityId),
+});
+
 /** Destaque primeiro, depois a publicada há menos tempo. */
 const byHighlightThenRecent = (a: JobPost, b: JobPost) => {
   if (a.isHighlighted !== b.isHighlighted) return a.isHighlighted ? -1 : 1;
@@ -48,7 +69,7 @@ const byHighlightThenRecent = (a: JobPost, b: JobPost) => {
  */
 export async function listJobs(
   filters: JobFilters = {},
-): Promise<ApiResult<Paginated<JobPost>>> {
+): Promise<ApiResult<Paginated<PublicJobPost>>> {
   return withMock(() => {
     const { role, cityIds, neighborhood, date } = filters;
     const page = Math.max(1, filters.page ?? 1);
@@ -71,7 +92,7 @@ export async function listJobs(
     const start = (page - 1) * pageSize;
 
     return ok({
-      items: matches.slice(start, start + pageSize),
+      items: matches.slice(start, start + pageSize).map(toPublicJobPost),
       total: matches.length,
       page,
       pageSize,
@@ -94,7 +115,7 @@ export async function listJobs(
  */
 export async function listJobsForMe(
   pageSize = WORKER_HOME_PAGE_SIZE,
-): Promise<ApiResult<Paginated<JobPost>>> {
+): Promise<ApiResult<Paginated<PublicJobPost>>> {
   const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const worker = store.workers.find((item) => item.id === workerId);
@@ -109,7 +130,7 @@ export async function listJobsForMe(
       .sort(byHighlightThenRecent);
 
     return ok({
-      items: matches.slice(0, pageSize),
+      items: matches.slice(0, pageSize).map(toPublicJobPost),
       total: matches.length,
       page: 1,
       pageSize,
@@ -179,12 +200,21 @@ export async function countReachedWorkers(input: {
   }).length;
 }
 
+/**
+ * O slug é único DENTRO da cidade, nunca no país — duas cidades podem ter uma
+ * `garcom-formatura`. Por isso a busca leva as duas partes, iguais às duas da
+ * URL (§8.1), e não o slug sozinho.
+ */
 export async function getJobBySlug(
+  citySlug: string,
   slug: string,
-): Promise<ApiResult<JobPost | null>> {
-  return withMock(() =>
-    ok(store.jobPosts.find((job) => job.slug === slug) ?? null),
-  );
+): Promise<ApiResult<PublicJobPost | null>> {
+  return withMock(() => {
+    const job = store.jobPosts.find(
+      (item) => item.slug === slug && citySlug === citySlugOf(item.cityId),
+    );
+    return ok(job ? toPublicJobPost(job) : null);
+  });
 }
 
 /**
@@ -208,7 +238,7 @@ export async function listOpenJobNeighborhoods(): Promise<ApiResult<string[]>> {
  */
 export async function createJob(
   input: JobPostFormInput,
-): Promise<ApiResult<JobPost>> {
+): Promise<ApiResult<PublicJobPost>> {
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const parsed = jobPostSchema.safeParse(input);
@@ -240,12 +270,12 @@ export async function createJob(
     };
 
     store.jobPosts = [job, ...store.jobPosts];
-    return ok(job);
+    return ok(toPublicJobPost(job));
   });
 }
 
 /** PATCH /v1/jobs/:id/close — a empresa fecha a vaga quando já se acertou. */
-export async function closeJob(id: string): Promise<ApiResult<JobPost>> {
+export async function closeJob(id: string): Promise<ApiResult<PublicJobPost>> {
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const job = store.jobPosts.find((item) => item.id === id);
@@ -261,6 +291,6 @@ export async function closeJob(id: string): Promise<ApiResult<JobPost>> {
     store.jobPosts = store.jobPosts.map((item) =>
       item.id === id ? updated : item,
     );
-    return ok(updated);
+    return ok(toPublicJobPost(updated));
   });
 }

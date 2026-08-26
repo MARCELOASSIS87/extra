@@ -1,6 +1,7 @@
 import type { ApiResult } from "@extra/shared/types/api";
 import type { Application } from "@extra/shared/types/application";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
+import { toPublicJobPost } from "./jobs";
 import type { AttendanceStatus } from "@extra/shared/types/attendance";
 import type {
   WorkerApplicantProfile,
@@ -121,7 +122,7 @@ export async function listMyApplications(): Promise<ApiResult<Application[]>> {
  * candidaturas. Ordenado pela vaga mais próxima primeiro.
  */
 export async function listMyApplicationsWithJob(): Promise<
-  ApiResult<{ application: Application; job: JobPost }[]>
+  ApiResult<{ application: Application; job: PublicJobPost }[]>
 > {
   const workerId = await getCurrentWorkerId();
   return withMock(() =>
@@ -132,7 +133,7 @@ export async function listMyApplicationsWithJob(): Promise<
           const job = store.jobPosts.find(
             (item) => item.id === application.jobPostId,
           );
-          return job ? [{ application, job }] : [];
+          return job ? [{ application, job: toPublicJobPost(job) }] : [];
         })
         .sort((a, b) => a.job.startsAt.localeCompare(b.job.startsAt)),
     ),
@@ -233,7 +234,7 @@ export async function listJobApplicants(
  */
 export async function listJobCandidates(jobId: string): Promise<
   ApiResult<{
-    job: JobPost;
+    job: PublicJobPost;
     candidates: {
       application: Application;
       worker: WorkerApplicantProfile;
@@ -288,7 +289,7 @@ export async function listJobCandidates(jobId: string): Promise<
 
     // A vaga vem junto: as duas telas da empresa precisam dela (título, data,
     // valor da mensagem do §16.5) e ela já foi validada aqui.
-    return ok({ job, candidates });
+    return ok({ job: toPublicJobPost(job), candidates });
   });
 }
 
@@ -298,7 +299,11 @@ export async function listJobCandidates(jobId: string): Promise<
  */
 export async function listNewApplicants(): Promise<
   ApiResult<
-    { application: Application; job: JobPost; worker: WorkerPublicProfile }[]
+    {
+      application: Application;
+      job: PublicJobPost;
+      worker: WorkerPublicProfile;
+    }[]
   >
 > {
   const companyId = await getCurrentCompanyId();
@@ -310,7 +315,13 @@ export async function listNewApplicants(): Promise<
         if (!job || job.companyId !== companyId) return [];
         const worker = store.workers.find((w) => w.id === item.workerId);
         if (!worker) return [];
-        return [{ application: item, job, worker: toPublicProfile(worker) }];
+        return [
+          {
+            application: item,
+            job: toPublicJobPost(job),
+            worker: toPublicProfile(worker),
+          },
+        ];
       })
       .sort((a, b) =>
         b.application.appliedAt.localeCompare(a.application.appliedAt),

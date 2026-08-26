@@ -11,12 +11,14 @@ export const metadata: Metadata = {
 export default async function CadastroTrabalhadorPage({
   searchParams,
 }: PageProps<"/cadastro/trabalhador">) {
-  const { vaga } = await searchParams;
+  const { cidade, vaga } = await searchParams;
+  const citySlug = typeof cidade === "string" ? cidade : undefined;
   const slug = typeof vaga === "string" ? vaga : undefined;
 
-  // Se o slug veio errado ou a vaga não existe mais, o cadastro segue normal
+  // Se o link veio errado ou a vaga não existe mais, o cadastro segue normal
   // — só não há candidatura automática nem redirecionamento no fim (§16.5).
-  const jobResult = slug ? await getJobBySlug(slug) : null;
+  const jobResult =
+    citySlug && slug ? await getJobBySlug(citySlug, slug) : null;
   const job = jobResult?.ok ? jobResult.data : null;
 
   return (

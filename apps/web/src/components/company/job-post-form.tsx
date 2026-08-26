@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CircleCheck, ShieldAlert } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
 import {
   jobPostFormSchema,
   JOB_REACH_RADIUS_OPTIONS,
@@ -44,7 +44,7 @@ function FieldError({ message }: { message?: string }) {
 }
 
 export function JobPostForm() {
-  const [published, setPublished] = useState<JobPost | null>(null);
+  const [published, setPublished] = useState<PublicJobPost | null>(null);
 
   const {
     register,
@@ -332,7 +332,7 @@ export function JobPostForm() {
   );
 }
 
-function SuccessState({ job }: { job: JobPost }) {
+function SuccessState({ job }: { job: PublicJobPost }) {
   return (
     <div className="mt-6 rounded-xl border border-dashed p-6 text-center">
       <CircleCheck aria-hidden="true" className="text-primary mx-auto size-8" />

@@ -61,7 +61,7 @@ export function AttendancePendingList({ items }: { items: PendingItem[] }) {
             </div>
 
             <Link
-              href={`/vagas/${item.job.slug}`}
+              href={`/vagas/${item.job.citySlug}/${item.job.slug}`}
               className="mt-3 block font-medium leading-snug underline-offset-4 hover:underline"
             >
               {item.job.title}

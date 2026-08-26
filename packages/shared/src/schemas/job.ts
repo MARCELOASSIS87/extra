@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nextCalendarDay, saoPauloToUtc } from "../lib/datetime";
-import { cityIdSchema } from "./city";
+import { cityIdSchema, citySlugSchema } from "./city";
 import type { JobReach, JobRole } from "../types/job";
 
 const jobRoleValues = [
@@ -155,3 +155,26 @@ export const jobFiltersSchema = z.object({
 });
 
 export type JobFiltersInput = z.infer<typeof jobFiltersSchema>;
+
+/** Tamanho fixo da página pública. A query de §8 não tem `pageSize`. */
+export const JOBS_PAGE_SIZE = 20;
+
+/**
+ * Query de `GET /v1/jobs` (§8). Não é o mesmo que `jobFiltersSchema`: aqui
+ * `city` é o SLUG (o que vem na URL) e `from`/`to` são instantes em UTC. A
+ * conversão para America/Sao_Paulo é do front — a API não sabe fuso.
+ *
+ * `city` não tem `.catch(undefined)` de propósito, e é a única diferença que
+ * importa: slug errado tem que virar 404 na rota. Cair para "sem filtro"
+ * devolveria vaga de outra cidade, e cair para "lista vazia" faria quem
+ * digitou errado concluir que não há vaga ali.
+ */
+export const publicJobsQuerySchema = z.object({
+  city: citySlugSchema.optional(),
+  role: jobRoleSchema.optional().catch(undefined),
+  from: z.iso.datetime().optional().catch(undefined),
+  to: z.iso.datetime().optional().catch(undefined),
+  page: z.coerce.number().int().positive().optional().catch(undefined),
+});
+
+export type PublicJobsQuery = z.infer<typeof publicJobsQuerySchema>;

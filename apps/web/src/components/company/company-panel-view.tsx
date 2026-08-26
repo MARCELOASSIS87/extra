@@ -3,7 +3,7 @@ import { Briefcase, RefreshCw, UserRound, WifiOff } from "lucide-react";
 import type { ApiResult } from "@extra/shared/types/api";
 import type { Application } from "@extra/shared/types/application";
 import type { Company } from "@extra/shared/types/company";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
 import type { WorkerPublicProfile } from "@extra/shared/types/worker";
 import type { listAttendancePending } from "@/lib/api/attendance";
 import { AttendancePendingList } from "@/components/company/attendance-pending-list";
@@ -14,9 +14,13 @@ import { formatJobDate } from "@/lib/format";
 /** O que o painel busca — as quatro seções são independentes entre si. */
 export interface CompanyPanelData {
   company: ApiResult<Company | null>;
-  jobs: ApiResult<JobPost[]>;
+  jobs: ApiResult<PublicJobPost[]>;
   applicants: ApiResult<
-    { application: Application; job: JobPost; worker: WorkerPublicProfile }[]
+    {
+      application: Application;
+      job: PublicJobPost;
+      worker: WorkerPublicProfile;
+    }[]
   >;
   pending: Awaited<ReturnType<typeof listAttendancePending>>;
 }

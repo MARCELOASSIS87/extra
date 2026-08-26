@@ -5,7 +5,7 @@ import type {
   Application,
   ApplicationStatus,
 } from "@extra/shared/types/application";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
 import type { Worker } from "@extra/shared/types/worker";
 import { ConfirmApplicationButton } from "@/components/home/confirm-application-button";
 import { JobCard } from "@/components/jobs/job-card";
@@ -17,8 +17,8 @@ import { cn } from "@/lib/utils";
 
 export type WorkerHomeData = {
   worker: ApiResult<Worker | null>;
-  applications: ApiResult<{ application: Application; job: JobPost }[]>;
-  jobs: ApiResult<Paginated<JobPost>>;
+  applications: ApiResult<{ application: Application; job: PublicJobPost }[]>;
+  jobs: ApiResult<Paginated<PublicJobPost>>;
 };
 
 const STATUS_LABELS: Record<ApplicationStatus, string> = {
@@ -91,7 +91,7 @@ export function WorkerHomeView({
                   Amanhã: confirme se você vai
                 </p>
                 <Link
-                  href={`/vagas/${job.slug}`}
+                  href={`/vagas/${job.citySlug}/${job.slug}`}
                   className="mt-2 block text-lg font-bold leading-snug tracking-tight underline-offset-4 hover:underline"
                 >
                   {job.title}
@@ -176,7 +176,7 @@ export function WorkerHomeView({
               {active.map(({ application, job }) => (
                 <li key={application.id} className="min-w-0 rounded-xl border">
                   <Link
-                    href={`/vagas/${job.slug}`}
+                    href={`/vagas/${job.citySlug}/${job.slug}`}
                     className="hover:border-primary/30 focus-visible:ring-ring block rounded-xl p-4 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2"
                   >
                     <p className="font-bold leading-snug">{job.title}</p>

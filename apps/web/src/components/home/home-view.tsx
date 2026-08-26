@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { RefreshCw, SearchX, WifiOff } from "lucide-react";
 import type { ApiResult, Paginated } from "@extra/shared/types/api";
-import type { JobPost, JobRole } from "@extra/shared/types/job";
+import type { PublicJobPost, JobRole } from "@extra/shared/types/job";
 import { CITY } from "@extra/shared/constants/city";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { JobCard } from "@/components/jobs/job-card";
@@ -21,7 +21,7 @@ export function HomeView({
   result,
   role,
 }: {
-  result: ApiResult<Paginated<JobPost>> | null;
+  result: ApiResult<Paginated<PublicJobPost>> | null;
   role: JobRole | null;
 }) {
   return (

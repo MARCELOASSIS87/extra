@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { CircleCheck } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
 import type { Worker } from "@extra/shared/types/worker";
 import {
   workerQuickRegistrationSchema,
@@ -48,7 +48,7 @@ function becomeCurrentWorker(workerId: string) {
  * tarefa 11. Quando vem de uma vaga, ao concluir já candidata e volta pra lá
  * sem precisar tocar de novo — sem vaga de origem, mostra tela de sucesso.
  */
-export function WorkerRegistrationForm({ job }: { job: JobPost | null }) {
+export function WorkerRegistrationForm({ job }: { job: PublicJobPost | null }) {
   const router = useRouter();
   const [registered, setRegistered] = useState<Worker | null>(null);
 
@@ -104,7 +104,7 @@ export function WorkerRegistrationForm({ job }: { job: JobPost | null }) {
 
     becomeCurrentWorker(result.data.id);
     await applyToJob(job.id); // melhor esforço: falhar aqui não desfaz o cadastro
-    router.push(`/vagas/${job.slug}`);
+    router.push(`/vagas/${job.citySlug}/${job.slug}`);
     router.refresh();
   };
 

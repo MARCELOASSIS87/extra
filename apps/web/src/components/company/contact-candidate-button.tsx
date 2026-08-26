@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Check, MessageCircle } from "lucide-react";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
 import { markApplicationContacted } from "@/lib/api/applications";
 import { buttonVariants } from "@/components/ui/button";
 import { saoPauloTime } from "@extra/shared/lib/datetime";
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
  * `shortCode` que casa a conversa do WhatsApp com a candidatura.
  */
 function buildMessage(
-  job: JobPost,
+  job: PublicJobPost,
   workerFirstName: string,
   companyName: string,
   shortCode: string,
@@ -51,7 +51,7 @@ export function ContactCandidateButton({
   workerPhone: string;
   workerFirstName: string;
   companyName: string;
-  job: JobPost;
+  job: PublicJobPost;
   shortCode: string;
   contactedAt: string | null;
   size?: "sm" | "lg";

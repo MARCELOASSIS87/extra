@@ -70,3 +70,16 @@ export interface JobPost {
   publishedAt: string;
   expiresAt: string;
 }
+
+/**
+ * O que as rotas públicas de leitura devolvem (§8). Nome da empresa e nome da
+ * cidade não são campos de `JobPost` — moram em outras tabelas e entram por
+ * join, numa consulta por página. Resolver no cliente exigiria as 5.571
+ * cidades do IBGE dentro do bundle, e o público está em 4G com dados
+ * limitados.
+ */
+export interface PublicJobPost extends JobPost {
+  companyName: string;
+  cityName: string;
+  citySlug: string; // a URL do detalhe é /vagas/[cidade]/[slug]
+}

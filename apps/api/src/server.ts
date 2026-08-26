@@ -6,6 +6,8 @@ import type { ApiResult } from "@extra/shared/types/api";
 import { registerSession } from "./auth/session.js";
 import { failure } from "./http.js";
 import { registerAuthRoutes } from "./routes/auth.js";
+import { registerCityRoutes } from "./routes/cities.js";
+import { registerJobRoutes } from "./routes/jobs.js";
 import { registerWhatsappWebhook } from "./routes/whatsapp.js";
 import { isDatabaseReachable } from "./db.js";
 import { env, isProduction } from "./env.js";
@@ -159,6 +161,8 @@ export function buildServer(): FastifyInstance {
   });
 
   registerAuthRoutes(app);
+  registerCityRoutes(app);
+  registerJobRoutes(app);
   registerWhatsappWebhook(app);
 
   return app;

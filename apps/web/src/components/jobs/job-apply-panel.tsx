@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CircleCheck } from "lucide-react";
 import type { Application } from "@extra/shared/types/application";
-import type { JobPost } from "@extra/shared/types/job";
+import type { PublicJobPost } from "@extra/shared/types/job";
 import { applyToJob } from "@/lib/api/applications";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ export function JobApplyPanel({
   initialApplication,
   isWorker,
 }: {
-  job: JobPost;
+  job: PublicJobPost;
   initialApplication: Application | null;
   isWorker: boolean;
 }) {
@@ -78,7 +78,7 @@ export function JobApplyPanel({
   if (!isWorker) {
     return (
       <Link
-        href={`/cadastro/trabalhador?vaga=${job.slug}`}
+        href={`/cadastro/trabalhador?cidade=${job.citySlug}&vaga=${job.slug}`}
         className={cn(buttonVariants({ size: "lg" }), "h-12 w-full")}
       >
         Quero essa vaga
