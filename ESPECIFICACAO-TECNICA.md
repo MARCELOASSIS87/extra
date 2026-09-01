@@ -448,7 +448,8 @@ POST   /v1/applications/:id/confirm [trabalhador]
 
 GET    /v1/jobs/:id/applicants      [empresa] → WorkerPublicProfile[]
 GET    /v1/applications/:id/contact [empresa] → telefone DO TRABALHADOR. Grava contactedAt
-POST   /v1/jobs/:id/attendance      [empresa] { workerId, status }
+POST   /v1/jobs/:id/attendance      [empresa] { applicationId, status }
+GET    /v1/companies/me/attendance/pending  [empresa] fila de marcação, já sem os not_selected
 POST   /v1/attendance/:id/dispute   [trabalhador]
 
 POST   /v1/workers                  cadastro (multi-etapa, PATCH parcial)

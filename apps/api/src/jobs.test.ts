@@ -42,6 +42,16 @@ async function cleanup(): Promise<void> {
 
 const day = 24 * 60 * 60 * 1000;
 
+/**
+ * As vagas do teste começam bem longe no futuro, e toda listagem que confere
+ * quantidade filtra por `from` a partir daqui. Sem essa janela o teste conta
+ * também o que o seed de desenvolvimento (`pnpm -F api seed`) deixou no banco
+ * — foi assim que ele começou a falhar quando o seed passou a existir, e uma
+ * contagem que depende da tabela estar vazia é armadilha, não teste.
+ */
+const FUTURE = new Date(Date.now() + 365 * day);
+const FROM = FUTURE.toISOString();
+
 type JobSeed = {
   slug: string;
   role?: "garcom" | "barman";
@@ -73,7 +83,7 @@ async function seed(jobs: JobSeed[]): Promise<{ citySlug: string }> {
   await prisma.jobPost.createMany({
     data: jobs.map((job, index) => {
       const startsAt = new Date(
-        Date.now() + day * ((job.startsInDays ?? index) + 1),
+        FUTURE.getTime() + day * ((job.startsInDays ?? index) + 1),
       );
       return {
         companyId: company.id,
@@ -134,7 +144,7 @@ async function testListingOnlyOpen(): Promise<void> {
 
   const response = await app.inject({
     method: "GET",
-    url: `/v1/jobs?city=${citySlug}`,
+    url: `/v1/jobs?city=${citySlug}&from=${encodeURIComponent(FROM)}`,
   });
 
   assert.equal(response.statusCode, 200);
@@ -200,11 +210,10 @@ async function testFixedQueryCount(): Promise<void> {
     return [queries, response.json().data.items.length];
   };
 
-  const [oneQueries, oneItems] = await count(
-    `/v1/jobs?city=${citySlug}&role=barman`,
-  );
+  const window = `city=${citySlug}&from=${encodeURIComponent(FROM)}`;
+  const [oneQueries, oneItems] = await count(`/v1/jobs?${window}&role=barman`);
   const [manyQueries, manyItems] = await count(
-    `/v1/jobs?city=${citySlug}&role=garcom`,
+    `/v1/jobs?${window}&role=garcom`,
   );
 
   // Sem estas duas o teste passaria vazio: contador quebrado dá 0 = 0, e

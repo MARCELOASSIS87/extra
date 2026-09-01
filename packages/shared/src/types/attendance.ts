@@ -1,3 +1,5 @@
+import type { JobRole } from "./job";
+
 export interface AttendanceSummary {
   present: number;
   absent: number;
@@ -54,4 +56,31 @@ export interface AttendanceRecord {
   // Sem expiresAt: é markedAt + 12 meses, calculado na leitura. Cópia
   // guardada seria uma segunda fonte de verdade para um valor derivado.
   // Sem campo de texto livre. É a regra que evita ação por dano moral.
+}
+
+/**
+ * Um item da fila de marcação da empresa (§16.4). Vem do
+ * `GET /v1/companies/me/attendance/pending`, e é o que o card precisa para a
+ * empresa lembrar quem foi e em qual vaga — ela marca dias depois do evento,
+ * e sem nome, função, data e local juntos a marcação vira chute.
+ *
+ * SEM telefone, e é o ponto (§16.5, regra 8): uma fila que carrega números é
+ * uma lista telefônica, mesmo que a tela não os desenhe. O `applicationId`
+ * está aqui para pedir o contato um por vez, e o pedido registra a escolha.
+ *
+ * Só o nome público — primeiro nome e a inicial do sobrenome, como a view
+ * devolve. A fila é tela de empresa, não motivo para servir nome completo.
+ */
+export interface AttendancePendingItem {
+  applicationId: string;
+  shortCode: string;
+  workerId: string;
+  workerFirstName: string;
+  workerLastNameInitial: string;
+  jobPostId: string;
+  jobTitle: string;
+  jobRole: JobRole;
+  jobNeighborhood: string;
+  jobStartsAt: string;
+  jobEndsAt: string;
 }

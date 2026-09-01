@@ -83,7 +83,7 @@ export function CandidateProfileClient({
   const candidate = candidates.find((item) => item.worker.id === workerId);
   if (!candidate) notFound();
 
-  const { application, worker, workerPhone, presentWithCompany } = candidate;
+  const { application, worker, presentWithCompany } = candidate;
   const summary = formatAttendanceSummary(worker.attendance);
   const companyName = company.ok && company.data ? company.data.tradeName : "";
 
@@ -187,7 +187,6 @@ export function CandidateProfileClient({
       <div className="mt-6">
         <ContactCandidateButton
           applicationId={application.id}
-          workerPhone={workerPhone}
           workerFirstName={worker.firstName}
           companyName={companyName}
           job={job}

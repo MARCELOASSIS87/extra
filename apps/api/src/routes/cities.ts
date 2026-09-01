@@ -14,7 +14,7 @@ import { publicReadRateLimit } from "../rate-limit.js";
  * caixa sem `unaccent` — extensão que precisaria entrar por migration só para
  * refazer o que o slug já resolve.
  *
- * ponytail: `contains` faz varredura em 5.571 linhas, o que é ~1ms. Vira
+ * TODO: `contains` faz varredura em 5.571 linhas, o que é ~1ms. Vira
  * índice `pg_trgm` no dia em que a tabela crescer, o que não vai acontecer.
  */
 const toSearchSlug = (value: string): string =>

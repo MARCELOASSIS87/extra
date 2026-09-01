@@ -135,7 +135,14 @@ export function CompanyPanelView({ data }: { data: CompanyPanelData | null }) {
         ) : !data.pending.ok ? (
           <ErrorState message="Não foi possível carregar as pendências." />
         ) : (
-          <AttendancePendingList items={data.pending.data} />
+          <AttendancePendingList
+            items={data.pending.data}
+            companyName={
+              data.company.ok && data.company.data
+                ? data.company.data.tradeName
+                : ""
+            }
+          />
         )}
       </section>
     </div>

@@ -151,3 +151,46 @@ export const workerQuickRegistrationSchema = z
 export type WorkerQuickRegistrationInput = z.infer<
   typeof workerQuickRegistrationSchema
 >;
+
+/**
+ * POST /v1/workers — o cadastro inteiro numa chamada só, montado das mesmas
+ * etapas do §16.1. Composto, nunca reescrito: repetir aqui o CPF, a idade
+ * mínima ou o teto de funções criaria uma segunda versão de cada regra, e é a
+ * segunda versão que envelhece.
+ *
+ * O telefone NÃO entra: ele mora em `Account` e já foi provado no login (§7.2)
+ * — reenviá-lo no corpo seria deixar o cliente escolher o próprio telefone.
+ *
+ * `termsAcceptedAt` e `termsAcceptedIp` também não: o cliente não sabe o
+ * próprio IP e não deveria escolher a hora do consentimento. Quem carimba os
+ * dois é o servidor, com o instante da requisição e `request.ip`.
+ *
+ * A selfie e o vídeo ficam de fora porque o upload é a tarefa 25 — quem chega
+ * sem eles termina o cadastro do mesmo jeito, e é isso que a regra da casa
+ * manda: nunca travar (§16.1).
+ */
+export const workerCreateSchema = workerStep1IdentitySchema
+  .extend(workerStep4ProfileSchema.shape)
+  .extend(workerTermsAcceptanceSchema.shape)
+  .extend(workerNotificationPreferencesSchema.shape)
+  .extend({
+    // Onde mora: contexto do bairro e âncora do raio de vizinhança (§7.3).
+    cityId: cityIdSchema,
+  })
+  .strict();
+
+export type WorkerCreateInput = z.infer<typeof workerCreateSchema>;
+
+/**
+ * Query de `GET /v1/cities/:id/neighbors`. O raio é aberto aqui — a tela mostra
+ * "50 km inclui 23 cidades" ANTES de a pessoa escolher, então ela precisa
+ * poder perguntar por um valor que ainda não é o dela. O que é fechado em
+ * 25|50 é o que se GRAVA, e isso `nearbyRadiusKmSchema` já garante.
+ */
+export const cityNeighborsQuerySchema = z.object({
+  radiusKm: z.coerce
+    .number()
+    .int()
+    .min(1, "Raio inválido")
+    .max(100, "A vizinhança só vai até 100 km"),
+});

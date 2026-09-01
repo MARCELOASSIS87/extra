@@ -1,5 +1,10 @@
 import type { ApiResult } from "@extra/shared/types/api";
-import type { Application } from "@extra/shared/types/application";
+import type {
+  Application,
+  ApplicationContact,
+  MyApplication,
+} from "@extra/shared/types/application";
+import { effectiveAttendanceStatus } from "@extra/shared/lib/attendance";
 import type { PublicJobPost } from "@extra/shared/types/job";
 import { toPublicJobPost } from "./jobs";
 import type { AttendanceStatus } from "@extra/shared/types/attendance";
@@ -75,32 +80,49 @@ export async function applyToJob(
 }
 
 /**
- * POST /v1/applications/:id/contacted [empresa] — grava quando a empresa toca
- * em "Falar no WhatsApp" (§16.5). O clique é o ato de escolher: só a empresa
- * inicia o contato, então só ela chega aqui. É o dado que mede candidatura
- * versus contato real, e o que alimenta a marcação de presença (§16.7).
+ * GET /v1/applications/:id/contact [empresa] — a ÚNICA porta por onde um
+ * telefone sai (§16.5, regra 8). A lista de candidatos não carrega telefone
+ * nenhum: quem quer falar pede aqui, e o ato de pedir É o ato de escolher.
+ *
+ * `contactedAt` é gravado na primeira chamada e nunca reescrito — a data da
+ * escolha é a da primeira vez. Chamar de novo devolve o mesmo telefone e a
+ * mesma data, igual à rota real.
  */
-export async function markApplicationContacted(
-  id: string,
-): Promise<ApiResult<Application>> {
+export async function getApplicationContact(
+  applicationId: string,
+): Promise<ApiResult<ApplicationContact>> {
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
-    const application = store.applications.find((item) => item.id === id);
-    if (!application)
-      return err("application_not_found", "Candidatura não encontrada.");
+    const application = store.applications.find(
+      (item) => item.id === applicationId,
+    );
+    if (!application) {
+      return err("not_found", "Candidatura não encontrada.");
+    }
 
     const job = store.jobPosts.find(
       (item) => item.id === application.jobPostId,
     );
+    // Candidatura de outra empresa responde igual a inexistente: dizer
+    // "é de outra empresa" já confirma que o id existe.
     if (!job || job.companyId !== companyId) {
-      return err("forbidden", "Esta candidatura é de outra empresa.");
+      return err("not_found", "Candidatura não encontrada.");
     }
 
-    const updated: Application = { ...application, contactedAt: nowIso() };
-    store.applications = store.applications.map((item) =>
-      item.id === id ? updated : item,
+    const worker = store.workers.find(
+      (item) => item.id === application.workerId,
     );
-    return ok(updated);
+    if (!worker) return err("not_found", "Candidatura não encontrada.");
+
+    const contactedAt = application.contactedAt ?? nowIso();
+    if (!application.contactedAt) {
+      const updated: Application = { ...application, contactedAt };
+      store.applications = store.applications.map((item) =>
+        item.id === applicationId ? updated : item,
+      );
+    }
+
+    return ok({ applicationId, phone: worker.phone, contactedAt });
   });
 }
 
@@ -122,22 +144,43 @@ export async function listMyApplications(): Promise<ApiResult<Application[]>> {
  * candidaturas. Ordenado pela vaga mais próxima primeiro.
  */
 export async function listMyApplicationsWithJob(): Promise<
-  ApiResult<{ application: Application; job: PublicJobPost }[]>
+  ApiResult<MyApplication[]>
 > {
   const workerId = await getCurrentWorkerId();
-  return withMock(() =>
-    ok(
+  return withMock(() => {
+    const now = nowIso();
+    return ok(
       store.applications
         .filter((item) => item.workerId === workerId)
         .flatMap((application) => {
           const job = store.jobPosts.find(
             (item) => item.id === application.jobPostId,
           );
-          return job ? [{ application, job: toPublicJobPost(job) }] : [];
+          if (!job) return [];
+
+          const record = store.attendanceRecords.find(
+            (item) =>
+              item.jobPostId === job.id &&
+              item.workerId === application.workerId,
+          );
+
+          // O trabalho ainda não acabou: não há desfecho nenhum para mostrar.
+          // Depois disso quem responde é a função compartilhada — e o que ela
+          // devolve para o silêncio da empresa é `not_selected`, nunca falta.
+          const attendanceStatus =
+            job.endsAt > now
+              ? null
+              : effectiveAttendanceStatus(
+                  record ?? { status: "pending", markedAt: null },
+                  job.endsAt,
+                  now,
+                );
+
+          return [{ application, job: toPublicJobPost(job), attendanceStatus }];
         })
         .sort((a, b) => a.job.startsAt.localeCompare(b.job.startsAt)),
-    ),
-  );
+    );
+  });
 }
 
 /**
@@ -224,9 +267,14 @@ export async function listJobApplicants(
 }
 
 /**
- * Tela "candidatos da vaga": shortCode, perfil de candidato e o telefone do
- * trabalhador — escopado à empresa dona da vaga (§16.5). O telefone nunca é
- * exibido como texto: só alimenta o botão que abre o WhatsApp.
+ * Tela "candidatos da vaga": shortCode e perfil de candidato, escopado à
+ * empresa dona da vaga (§16.5).
+ *
+ * SEM telefone, e é o ponto: uma vaga de seis aceita dezoito candidaturas, e
+ * uma lista que carrega dezoito números é uma lista telefônica que basta abrir
+ * o DevTools para copiar — não importa que a tela não os desenhe. Quem quer
+ * falar pede um número por vez em `getApplicationContact()`, e o pedido fica
+ * registrado como a escolha que é (regra 8).
  *
  * `presentWithCompany` conta as presenças que ESTA empresa já registrou para
  * ele ("você já contratou fulano N vezes"); `attendanceStatus` é o que ela já
@@ -238,7 +286,6 @@ export async function listJobCandidates(jobId: string): Promise<
     candidates: {
       application: Application;
       worker: WorkerApplicantProfile;
-      workerPhone: string;
       /**
        * Entre os centros do município dele e o da vaga. `null` quando o par
        * não está na tabela de vizinhança (acima de 100 km) — a tela escreve
@@ -267,7 +314,6 @@ export async function listJobCandidates(jobId: string): Promise<
           {
             application,
             worker: toApplicantProfile(worker),
-            workerPhone: worker.phone,
             distanceKm: cityDistanceKm(worker.cityId, job.cityId),
             presentWithCompany: store.attendanceRecords.filter(
               (record) =>

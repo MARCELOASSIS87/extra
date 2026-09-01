@@ -13,11 +13,15 @@ import {
   confirmApplication,
   listJobApplicants,
   listJobCandidates,
-  markApplicationContacted,
+  getApplicationContact,
   listMyApplications,
   withdrawApplication,
 } from "./applications";
-import { disputeAttendance, markAttendance } from "./attendance";
+import {
+  disputeAttendance,
+  listAttendancePending,
+  markAttendance,
+} from "./attendance";
 import {
   attendanceExpiresAt,
   isUnderDispute,
@@ -26,6 +30,32 @@ import { createWorker, updateMyWorkerProfile } from "./workers";
 import { createCompany, listMyCompanyJobs } from "./companies";
 import { CURRENT_TERMS_VERSION } from "@extra/shared/constants/terms";
 import { getCurrentCompanyId, getCurrentWorkerId, store } from "./mock";
+import { DEFAULT_CITY_ID } from "./cities";
+
+/**
+ * Toda chave que aparece no payload, em qualquer profundidade. Existe porque
+ * conferir o TIPO não prova nada sobre o que sai: o tipo é o que se acredita
+ * estar devolvendo, as chaves são o que realmente vai no fio (§16.5, regra 8).
+ */
+const SECRET_KEYS = ["workerPhone", "phone", "telefone", "cpf", "birthDate"];
+
+const keysOf = (value: unknown, found = new Set<string>()): Set<string> => {
+  if (Array.isArray(value)) value.forEach((item) => keysOf(item, found));
+  else if (value && typeof value === "object") {
+    for (const [key, child] of Object.entries(value)) {
+      found.add(key);
+      keysOf(child, found);
+    }
+  }
+  return found;
+};
+
+function assertNoContactKeys(payload: unknown, what: string): void {
+  const keys = keysOf(payload);
+  for (const key of SECRET_KEYS) {
+    assert.ok(!keys.has(key), `a chave "${key}" não pode existir em ${what}`);
+  }
+}
 
 // A camada falha de propósito em ~5% das chamadas; o teste repete só nesse caso.
 async function call<T>(fn: () => Promise<ApiResult<T>>): Promise<ApiResult<T>> {
@@ -185,6 +215,7 @@ async function main() {
 
   // --- publicação de vaga -----------------------------------------------------
   const validJob = {
+    cityId: DEFAULT_CITY_ID,
     role: "garcom" as const,
     title: "Garçom para evento de teste",
     description: "Atendimento de mesas em evento corporativo no centro.",
@@ -290,16 +321,29 @@ async function main() {
     !("cpf" in candidate.worker) && !("birthDate" in candidate.worker),
     "WorkerApplicantProfile não carrega CPF nem data de nascimento",
   );
+  // Antes de a empresa chamar, ninguém foi escolhido.
   assert.equal(candidate.application.contactedAt, null);
 
-  const contacted = unwrap(
-    await call(() => markApplicationContacted(candidate.application.id)),
+  assertNoContactKeys(candidatesResult.candidates, "na lista de candidatos");
+
+  // O clique em "Falar no WhatsApp" é o ato de escolher: é ele que pede o
+  // telefone e é ele que grava contactedAt.
+  const contact = unwrap(
+    await call(() => getApplicationContact(candidate.application.id)),
   );
+  assert.ok(contact.phone.startsWith("+55"), "o contato devolve o telefone");
   assert.notEqual(
-    contacted.contactedAt,
+    contact.contactedAt,
     null,
     "o clique da empresa em Falar no WhatsApp grava contactedAt",
   );
+
+  // Chamar de novo não reescreve a data: a escolha aconteceu na primeira vez.
+  const again = unwrap(
+    await call(() => getApplicationContact(candidate.application.id)),
+  );
+  assert.equal(again.contactedAt, contact.contactedAt);
+  assert.equal(again.phone, contact.phone);
 
   const withdrawn = unwrap(
     await call(() => withdrawApplication(application.id)),
@@ -395,6 +439,16 @@ async function main() {
       }),
     ),
     "attendance_already_marked",
+  );
+
+  // A fila de marcação não carrega telefone pela mesma razão da lista de
+  // candidatos: quem quiser falar dali pede um número por vez, e o pedido
+  // registra o contato. Varrido por CHAVE, não pelo tipo.
+  const pendingList = unwrap(await call(() => listAttendancePending()));
+  assertNoContactKeys(pendingList, "na fila de marcação de presença");
+  assert.ok(
+    pendingList.every((item) => typeof item.applicationId === "string"),
+    "a fila precisa do applicationId para pedir o contato",
   );
 
   const presentBefore =

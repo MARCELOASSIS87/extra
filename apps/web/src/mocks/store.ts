@@ -9,7 +9,7 @@ import {
   companies,
   jobPosts,
   workers,
-} from "./fixtures";
+} from "@extra/fixtures/fixtures";
 
 /**
  * Estado mutável da camada mock. As fixtures são o estado inicial; no
@@ -20,7 +20,7 @@ import {
  * escrevendo `store.jobPosts = [...]` como antes — a persistência acontece
  * dentro do setter, sem nenhum call-site de lib/api/ saber que ela existe.
  *
- * ponytail: um blob JSON por navegador, reescrito inteiro a cada escrita.
+ * TODO: um blob JSON por navegador, reescrito inteiro a cada escrita.
  * Some quando a API real chegar; até lá o volume é de uma demonstração.
  */
 

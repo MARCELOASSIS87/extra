@@ -1,0 +1,28 @@
+{
+  "name": "@extra/fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.21",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@extra/shared": "workspace:*"
+  },
+  "files": [
+    "dist"
+  ]
+}

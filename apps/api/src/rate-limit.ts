@@ -8,7 +8,7 @@ import { failure } from "./http.js";
  * Um balde por IP, compartilhado pelas três rotas, e não um por rota: quem
  * raspa bate nas três, e três orçamentos separados são três vezes o teto.
  *
- * ponytail: contador em memória, janela fixa. Vale enquanto a API for um
+ * TODO: contador em memória, janela fixa. Vale enquanto a API for um
  * contêiner só — que é a arquitetura de hoje. Com dois, cada processo conta o
  * seu e o teto real dobra; aí o balde vai para o Redis.
  */

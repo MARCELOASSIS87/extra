@@ -219,7 +219,15 @@ CREATE OR REPLACE VIEW worker_public_profiles AS
 SELECT
   w.id,
   w.first_name,
-  left(w.last_name, 1)                     AS last_name_initial,
+  -- The initial comes from the SURNAME, not from the first character. first_name holds only
+  -- the given name, so last_name carries everything else — "Ana Paula Ferreira" splits into
+  -- "Ana" and "Paula Ferreira", and left(last_name, 1) returned the middle name's initial.
+  -- Generation suffixes are dropped first: in "João Silva Junior" the surname is Silva.
+  -- An empty surname yields an empty initial — no invented letter, no stray full stop.
+  CASE
+    WHEN surname.word = '' THEN ''
+    ELSE left(surname.word, 1) || '.'
+  END                                      AS last_name_initial,
   c.name                                   AS city_name,
   w.neighborhood,
   w.experience,
@@ -228,6 +236,18 @@ SELECT
   w.created_at                             AS member_since
 FROM workers w
 JOIN cities c ON c.id = w.city_id
+CROSS JOIN LATERAL (
+  SELECT regexp_replace(
+    regexp_replace(
+      w.last_name,
+      '((^|\s+)(jr|j[uú]nior|neto|filho|sobrinho|segundo)\.?)+\s*$',
+      '',
+      'i'
+    ),
+    '^.*\s+',
+    ''
+  ) AS word
+) surname
 WHERE w.status <> 'self_deactivated';
 
 -- Rules 7 and 10, plus §16.6.

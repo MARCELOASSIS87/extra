@@ -6,7 +6,7 @@ import { CalendarDays, Clock, MapPin } from "lucide-react";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import type { listAttendancePending } from "@/lib/api/attendance";
 import { AttendanceMarkButtons } from "@/components/company/attendance-mark-buttons";
-import { WhatsappButton } from "@/components/contact/whatsapp-button";
+import { ContactCandidateButton } from "@/components/company/contact-candidate-button";
 import { formatJobDate, formatTimeRange } from "@/lib/format";
 
 /**
@@ -28,7 +28,13 @@ const itemKey = (item: PendingItem) => `${item.job.id}:${item.worker.id}`;
  * depois do evento: sem nome, função, data e local juntos, quem marca não
  * lembra quem foi nem em qual vaga.
  */
-export function AttendancePendingList({ items }: { items: PendingItem[] }) {
+export function AttendancePendingList({
+  items,
+  companyName,
+}: {
+  items: PendingItem[];
+  companyName: string;
+}) {
   const [pending, setPending] = useState(items);
 
   if (pending.length === 0) {
@@ -88,9 +94,16 @@ export function AttendancePendingList({ items }: { items: PendingItem[] }) {
             </dl>
 
             <div className="mt-3">
-              <WhatsappButton
-                phone={item.workerPhone}
-                label={`Falar com ${item.worker.firstName}`}
+              {/* Mesmo caminho da lista de candidatos, sem exceção: contatar
+                  daqui é escolher aquela pessoa, e o pedido do telefone é o
+                  que registra `contactedAt` (§16.5). */}
+              <ContactCandidateButton
+                applicationId={item.applicationId}
+                workerFirstName={item.worker.firstName}
+                companyName={companyName}
+                job={item.job}
+                shortCode={item.shortCode}
+                contactedAt={null}
               />
             </div>
 

@@ -108,7 +108,7 @@ export async function listJobs(
  * O opt-in do trabalhador é o teto: quem mora numa vizinha e assinou Poços vê
  * as vagas de Poços; quem não assinou não vê, por mais perto que seja.
  *
- * ponytail: `nearbyRadiusKm` de propósito não entra aqui. O raio governa o
+ * TODO: `nearbyRadiusKm` de propósito não entra aqui. O raio governa o
  * AVISO (§16.2); a listagem é navegação, e o que ela abre é o que a pessoa
  * assinou na mão. Some as cidades do raio aqui se a lista inicial ficar curta
  * demais na prática.
@@ -166,7 +166,7 @@ export async function getDefaultJobCityIds(): Promise<string[]> {
  * trabalha ali, pode morar a 80 km e ir de ônibus), e o `reach` filtra apenas
  * quem está chegando pelo raio de vizinhança.
  *
- * ponytail: não filtra disponibilidade de dia e período. O número é apoio de
+ * TODO: não filtra disponibilidade de dia e período. O número é apoio de
  * decisão, e recalcular a cada tecla na data faria ele piscar; o disparo real
  * reavalia. Entra aqui quando o push existir.
  */
@@ -258,7 +258,9 @@ export async function createJob(
       id: randomId(),
       slug: `${slugify(data.title)}-${randomId().slice(0, 6)}`,
       companyId: company.id,
-      cityId: company.cityId,
+      // A cidade vem do FORMULÁRIO: é onde o trabalho acontece, e é ela que
+      // decide quem recebe o aviso (§16.2). A da empresa é só o padrão.
+      cityId: data.cityId,
       applicationsCount: 0,
       maxApplications: maxApplicationsFor(data.vacancies),
       status: "open",

@@ -10,8 +10,9 @@
     "dev": "pnpm -F @extra/shared build && tsx watch src/index.ts",
     "build": "pnpm -F @extra/shared build && tsc",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit",
-    "test": "tsx src/auth.test.ts && tsx src/constraints.test.ts && tsx src/jobs.test.ts"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.seed.json",
+    "test": "tsx src/auth.test.ts && tsx src/constraints.test.ts && tsx src/jobs.test.ts && tsx src/jobs-write.test.ts && tsx src/applications.test.ts && tsx src/attendance.test.ts",
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@extra/shared": "workspace:*",
@@ -22,6 +23,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@extra/fixtures": "workspace:*",
     "@types/node": "^22.19.21",
     "prisma": "6.19.3",
     "tsx": "^4.23.12",

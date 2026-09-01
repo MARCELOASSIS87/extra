@@ -89,7 +89,7 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
         ) : (
           <ul className="grid gap-3">
             {result.data.candidates.map(
-              ({ application, worker, workerPhone, distanceKm }) => (
+              ({ application, worker, distanceKm }) => (
                 // Link esticado: "Ver perfil completo" é um link de verdade,
                 // e o `before` dele cobre o card inteiro — alvo grande, uma
                 // mão, no ônibus. Envolver o card num <a> não dá: botão dentro
@@ -125,7 +125,6 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
                   <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-2">
                     <ContactCandidateButton
                       applicationId={application.id}
-                      workerPhone={workerPhone}
                       workerFirstName={worker.firstName}
                       companyName={companyName}
                       job={result.data.job}

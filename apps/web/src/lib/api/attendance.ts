@@ -18,6 +18,7 @@ import {
 import {
   attendanceExpiresAt,
   DISPUTE_WINDOW_DAYS,
+  effectiveAttendanceStatus,
   isUnderDispute,
 } from "@extra/shared/lib/attendance";
 import { err, ok } from "./result";
@@ -83,17 +84,23 @@ export async function markAttendance(
 
 /**
  * Vagas já realizadas com candidato ainda sem presença marcada (§16.4): a
- * pendência que o painel da empresa mostra. Vem com nome, código e telefone
- * porque a empresa marca dias depois do evento e precisa lembrar quem foi e
- * em qual vaga — sem isso a marcação vira chute.
+ * pendência que o painel da empresa mostra. Vem com nome, código e vaga porque
+ * a empresa marca dias depois do evento e precisa lembrar quem foi e em qual
+ * vaga — sem isso a marcação vira chute.
+ *
+ * SEM telefone, pela mesma razão da lista de candidatos (§16.5, regra 8): uma
+ * lista que carrega números é uma lista telefônica, mesmo que a tela não os
+ * desenhe. Quem quiser falar pede um por vez em `getApplicationContact()`, e o
+ * `applicationId` está aqui justamente para isso — pedir dali registra o
+ * contato como a escolha que é.
  */
 export async function listAttendancePending(): Promise<
   ApiResult<
     {
       job: PublicJobPost;
       worker: WorkerApplicantProfile;
+      applicationId: string;
       shortCode: string;
-      workerPhone: string;
     }[]
   >
 > {
@@ -107,19 +114,33 @@ export async function listAttendancePending(): Promise<
         if (!job || job.companyId !== companyId || job.endsAt > now) {
           return [];
         }
-        const alreadyMarked = store.attendanceRecords.some(
-          (record) =>
-            record.jobPostId === job.id && record.workerId === item.workerId,
+        // `pending` é a ausência de marcação, não uma marcação (§16.7) — um
+        // registro nesse estado é a própria fila, e não pode tirar a pessoa
+        // dela. Sem esta condição, criar a linha pending faria o candidato
+        // sumir do painel sem ninguém ter marcado nada.
+        //
+        // Depois de 7 dias do fim do trabalho, porém, o silêncio da empresa
+        // JÁ É o desfecho: a pendência virou `not_selected` sozinha e não há
+        // mais o que marcar. Quem decide isso é a função compartilhada, não
+        // uma comparação de data escrita aqui.
+        const record = store.attendanceRecords.find(
+          (entry) =>
+            entry.jobPostId === job.id && entry.workerId === item.workerId,
         );
-        if (alreadyMarked) return [];
+        const effective = effectiveAttendanceStatus(
+          record ?? { status: "pending", markedAt: null },
+          job.endsAt,
+          now,
+        );
+        if (effective !== "pending") return [];
         const worker = store.workers.find((w) => w.id === item.workerId);
         if (!worker) return [];
         return [
           {
             job: toPublicJobPost(job),
             worker: toApplicantProfile(worker),
+            applicationId: item.id,
             shortCode: item.shortCode,
-            workerPhone: worker.phone,
           },
         ];
       })

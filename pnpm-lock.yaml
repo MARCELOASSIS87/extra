@@ -57,6 +57,9 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@extra/fixtures':
+        specifier: workspace:*
+        version: link:../../packages/fixtures
       '@types/node':
         specifier: ^22.19.21
         version: 22.20.1
@@ -112,6 +115,9 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
     devDependencies:
+      '@extra/fixtures':
+        specifier: workspace:*
+        version: link:../../packages/fixtures
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.3.3
@@ -132,6 +138,22 @@ importers:
         version: 4.23.12
       typescript:
         specifier: ^5
+        version: 5.9.3
+
+  packages/fixtures:
+    dependencies:
+      '@extra/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.21
+        version: 22.20.1
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(tsx@4.23.12)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
         version: 5.9.3
 
   packages/shared:

@@ -14,7 +14,9 @@ import {
 import type { JobReach } from "@extra/shared/types/job";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import { countReachedWorkers, createJob } from "@/lib/api/jobs";
-import { cityName, DEFAULT_CITY_ID } from "@/lib/api/cities";
+import { cityName, listCities } from "@/lib/api/cities";
+import { getMyCompany } from "@/lib/api/companies";
+import { FilterSheet } from "@/components/filters/filter-sheet";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +70,9 @@ export function JobPostForm() {
       payNote: null,
       address: "",
       neighborhood: "",
+      // Pré-selecionada com a cidade da empresa assim que ela carrega, mas
+      // é campo de verdade: o trabalho acontece onde a empresa disser.
+      cityId: "",
       requirements: null,
       vacancies: 1,
       providesTransport: false,
@@ -76,6 +81,21 @@ export function JobPostForm() {
       reachRadiusKm: null,
     },
   });
+
+  const cityId = useWatch({ control, name: "cityId" });
+
+  // A cidade da empresa é só o PADRÃO: quem publica troca quando o bico é em
+  // outro município, que é o caso normal de buffet e de empresa de eventos.
+  useEffect(() => {
+    let active = true;
+    getMyCompany().then((result) => {
+      if (!active || !result.ok || !result.data) return;
+      setValue("cityId", result.data.cityId, { shouldValidate: false });
+    });
+    return () => {
+      active = false;
+    };
+  }, [setValue]);
 
   const role = useWatch({ control, name: "role" });
   const reach = useWatch({ control, name: "reach" });
@@ -248,6 +268,31 @@ export function JobPostForm() {
         <FieldError message={errors.payNote?.message} />
       </div>
 
+      {/* Cidade antes do endereço: é ela que decide quem recebe o aviso e
+          qual página o Google indexa, e o endereço só faz sentido dentro
+          dela. Mesmo seletor da busca (§7.1) — id da tabela `cities`, nunca
+          texto digitado. */}
+      <div className="grid gap-1.5">
+        <span className={labelClass}>Cidade do trabalho</span>
+        <FilterSheet
+          label="Cidade do trabalho"
+          value={cityId || null}
+          options={listCities().map((city) => ({
+            value: city.id,
+            label: `${city.name} — ${city.uf}`,
+          }))}
+          onChange={(next) =>
+            setValue("cityId", next ?? "", { shouldValidate: true })
+          }
+          allOptionLabel="Escolha a cidade"
+          emptyLabel="Escolha a cidade"
+        />
+        <p className="text-muted-foreground text-xs">
+          Onde o trabalho acontece. É ela que decide quem recebe o aviso.
+        </p>
+        <FieldError message={errors.cityId?.message} />
+      </div>
+
       <div className="grid gap-1.5">
         <label htmlFor="address" className={labelClass}>
           Endereço
@@ -312,6 +357,7 @@ export function JobPostForm() {
         value={reach}
         radiusKm={reachRadiusKm}
         role={role}
+        cityId={cityId}
         onChange={(next) => {
           setValue("reach", next.reach);
           setValue("reachRadiusKm", next.radiusKm, { shouldValidate: true });
@@ -352,7 +398,7 @@ function SuccessState({ job }: { job: PublicJobPost }) {
 const REACH_LABELS: Record<JobReach, string> = {
   unrestricted: "Qualquer pessoa que aceite receber vagas daqui",
   nearby: "Só quem está a até um raio daqui",
-  city_only: `Só quem mora em ${cityName(DEFAULT_CITY_ID)}`,
+  city_only: "Só quem mora na cidade da vaga",
 };
 
 /**
@@ -367,12 +413,16 @@ function ReachField({
   value,
   radiusKm,
   role,
+  cityId,
   onChange,
   error,
 }: {
   value: JobReach;
   radiusKm: number | null;
   role: JobPostFormInput["role"];
+  /** A cidade DA VAGA: o alcance e a contagem giram em torno dela, não da
+   *  cidade em que a empresa está registrada. */
+  cityId: string;
   onChange: (next: { reach: JobReach; radiusKm: number | null }) => void;
   error?: string;
 }) {
@@ -390,11 +440,15 @@ function ReachField({
       { key: "city_only", reach: "city_only", radius: null },
     ];
 
+    // Sem cidade escolhida não há em torno de que contar. Só sai do efeito:
+    // zerar aqui seria setState síncrono, que dispara render em cascata.
+    if (!cityId) return;
+
     Promise.all(
       options.map(async (option) => [
         option.key,
         await countReachedWorkers({
-          cityId: DEFAULT_CITY_ID,
+          cityId,
           role,
           reach: option.reach,
           reachRadiusKm: option.radius,
@@ -407,7 +461,7 @@ function ReachField({
     return () => {
       active = false;
     };
-  }, [role]);
+  }, [role, cityId]);
 
   const avisados = (key: string) => {
     // O número é a razão de o campo existir: enquanto não chega, dizer que
@@ -469,7 +523,7 @@ function ReachField({
       {JOB_REACH_RADIUS_OPTIONS.map((km) =>
         option(
           `nearby:${km}`,
-          `Até ${km} km de ${cityName(DEFAULT_CITY_ID)}`,
+          `Até ${km} km de ${cityName(cityId) || "a cidade da vaga"}`,
           value === "nearby" && radiusKm === km,
           () => onChange({ reach: "nearby", radiusKm: km }),
         ),

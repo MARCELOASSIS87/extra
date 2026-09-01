@@ -51,7 +51,7 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  // ponytail: ler o cookie aqui torna toda rota dinâmica. Quando o detalhe da
+  // TODO: ler o cookie aqui torna toda rota dinâmica. Quando o detalhe da
   // vaga precisar de SSG/ISR para indexar no Google (§15), esta leitura desce
   // para um componente sob <Suspense> com PPR.
   const role = await getSessionRole();

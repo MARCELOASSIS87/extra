@@ -7,6 +7,8 @@ import { registerSession } from "./auth/session.js";
 import { failure } from "./http.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerCityRoutes } from "./routes/cities.js";
+import { registerApplicationRoutes } from "./routes/applications.js";
+import { registerAttendanceRoutes } from "./routes/attendance.js";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerWhatsappWebhook } from "./routes/whatsapp.js";
 import { isDatabaseReachable } from "./db.js";
@@ -163,6 +165,8 @@ export function buildServer(): FastifyInstance {
   registerAuthRoutes(app);
   registerCityRoutes(app);
   registerJobRoutes(app);
+  registerApplicationRoutes(app);
+  registerAttendanceRoutes(app);
   registerWhatsappWebhook(app);
 
   return app;

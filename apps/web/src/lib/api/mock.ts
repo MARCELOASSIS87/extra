@@ -5,7 +5,7 @@ import type {
   WorkerApplicantProfile,
   WorkerPublicProfile,
 } from "@extra/shared/types/worker";
-import { companies, workers } from "@/mocks/fixtures";
+import { companies, workers } from "@extra/fixtures/fixtures";
 import { cityName } from "./cities";
 import { resetStore, store } from "@/mocks/store";
 import { countsInPublicHistory } from "@extra/shared/lib/attendance";
@@ -211,7 +211,7 @@ export function toPublicProfile(worker: Worker): WorkerPublicProfile {
     introVideoUrl: worker.introVideoKey
       ? `/mock-media/${worker.introVideoKey}`
       : null,
-    // ponytail: poster por convenção de nome ao lado do vídeo, em vez de mais
+    // TODO: poster por convenção de nome ao lado do vídeo, em vez de mais
     // uma chave no Worker. Vira campo próprio quando o upload real gerar a
     // miniatura com outro nome.
     introVideoPosterUrl: worker.introVideoKey

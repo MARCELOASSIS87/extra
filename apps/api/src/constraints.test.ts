@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 
 /**
  * The safety net for everything that lives inside the migrations and outside
@@ -109,6 +110,30 @@ const REJECTIONS: ReadonlyArray<{
   },
 ];
 
+/**
+ * A inicial que a empresa lê na lista de candidatos. Não é constraint, é a
+ * regra de exibição da view — e uma view que continua existindo pode ter
+ * parado de responder certo, coisa que checar o catálogo nunca pega.
+ *
+ * O ponto faz parte do valor: é assim que a camada mock devolve, e as duas
+ * precisam bater campo a campo.
+ */
+const SURNAME_INITIALS: ReadonlyArray<
+  readonly [
+    fullName: string,
+    firstName: string,
+    lastName: string,
+    initial: string,
+  ]
+> = [
+  ["Ana Paula Ferreira", "Ana", "Paula Ferreira", "F."],
+  // Sufixo de geração não é sobrenome: quem lê precisa de "Silva".
+  ["João Silva Junior", "João", "Silva Junior", "S."],
+  ["Maria de Souza", "Maria", "de Souza", "S."],
+  // Nome único: inicial vazia. Nem letra inventada, nem ponto solto.
+  ["Madonna", "Madonna", "", ""],
+];
+
 let checks = 0;
 const check = (ok: boolean, message: string): void => {
   checks += 1;
@@ -117,6 +142,9 @@ const check = (ok: boolean, message: string): void => {
 
 /** Marks a transaction that has to be undone because the write went through. */
 class Accepted extends Error {}
+
+/** Undoes a transaction whose writes were only there to be read back. */
+class Rollback extends Error {}
 
 /** The database's refusal, or "" when it accepted the row. */
 async function rejectionOf(sql: string): Promise<string> {
@@ -129,6 +157,67 @@ async function rejectionOf(sql: string): Promise<string> {
     return error instanceof Accepted ? "" : String(error);
   }
   return "";
+}
+
+/**
+ * Insere os trabalhadores, lê a view e desfaz tudo. Precisa de conta e cidade
+ * de verdade porque aqui o INSERT tem que PASSAR — nas quatro sondas acima
+ * ele tem que falhar, e por isso lá as chaves estrangeiras não importam.
+ */
+async function initialsFromView(): Promise<string[]> {
+  const ids = SURNAME_INITIALS.map(() => randomUUID());
+  const found: string[] = [];
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Uma conta por trabalhador: `workers.account_id` é único (§7.2).
+      const accountIds = SURNAME_INITIALS.map(() => randomUUID());
+
+      for (const [
+        index,
+        [, firstName, lastName],
+      ] of SURNAME_INITIALS.entries()) {
+        await tx.$executeRawUnsafe(
+          `INSERT INTO accounts (id, phone) VALUES ($1::uuid, $2)`,
+          accountIds[index],
+          `+55359000000${String(index).padStart(2, "0")}`,
+        );
+        await tx.$executeRawUnsafe(
+          `INSERT INTO workers
+             (id, account_id, first_name, last_name, cpf, birth_date, city_id,
+              neighborhood, experience, terms_version, terms_accepted_at, terms_accepted_ip)
+           VALUES ($1::uuid, $2::uuid, $3, $4, $5::char(11), DATE '1990-01-01',
+                   '3151800', 'Centro', '', 'v1', now(), '127.0.0.1')`,
+          ids[index],
+          accountIds[index],
+          firstName,
+          lastName,
+          String(90000000000 + index),
+        );
+      }
+
+      // Lidos pelos ids inseridos, na ordem em que foram inseridos: filtrar por
+      // nome encostaria em quem o seed já pôs no banco.
+      const rows = await tx.$queryRawUnsafe<
+        { id: string; last_name_initial: string }[]
+      >(
+        `SELECT id, last_name_initial FROM worker_public_profiles
+          WHERE id = ANY($1::uuid[])`,
+        ids,
+      );
+      const byId = new Map(rows.map((row) => [row.id, row.last_name_initial]));
+      for (const id of ids) {
+        const initial = byId.get(id);
+        if (initial !== undefined) found.push(initial);
+      }
+
+      throw new Rollback();
+    });
+  } catch (error) {
+    if (!(error instanceof Rollback)) throw error;
+  }
+
+  return found;
 }
 
 async function main(): Promise<void> {
@@ -198,6 +287,20 @@ async function main(): Promise<void> {
     check(
       rejection.includes(expected),
       `${what}: recusado por outro motivo, esperava "${expected}" em ${rejection}`,
+    );
+  }
+
+  // --- 3. A inicial do sobrenome ---------------------------------------------
+
+  const initials = await initialsFromView();
+  check(
+    initials.length === SURNAME_INITIALS.length,
+    `a view devolveu ${initials.length} de ${SURNAME_INITIALS.length} perfis`,
+  );
+  for (const [index, [fullName, , , expected]] of SURNAME_INITIALS.entries()) {
+    check(
+      initials[index] === expected,
+      `"${fullName}": esperava "${expected}", veio "${initials[index]}"`,
     );
   }
 

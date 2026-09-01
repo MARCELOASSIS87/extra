@@ -140,6 +140,9 @@ assert.equal(
 );
 
 const validJob = {
+  // A cidade da vaga é escolhida, não herdada da empresa: é onde o trabalho
+  // acontece que decide quem é notificado.
+  cityId: "3151800",
   role: "garcom" as const,
   title: "Garçom para formatura",
   description: "Atender mesas em formatura no sábado à noite",
@@ -157,6 +160,16 @@ const validJob = {
   reachRadiusKm: null,
 };
 assert.equal(jobPostSchema.safeParse(validJob).success, true);
+assert.equal(
+  jobPostSchema.safeParse({ ...validJob, cityId: undefined }).success,
+  false,
+  "vaga sem cidade não passa: sem ela ninguém é notificado",
+);
+assert.equal(
+  jobPostSchema.safeParse({ ...validJob, cityId: "Poços de Caldas" }).success,
+  false,
+  "cidade é id da tabela, nunca texto digitado",
+);
 assert.equal(
   jobPostSchema.safeParse({ ...validJob, title: "Moça para garçonete" })
     .success,

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, MessageCircle } from "lucide-react";
 import type { PublicJobPost } from "@extra/shared/types/job";
-import { markApplicationContacted } from "@/lib/api/applications";
+import { getApplicationContact } from "@/lib/api/applications";
 import { buttonVariants } from "@/components/ui/button";
 import { saoPauloTime } from "@extra/shared/lib/datetime";
 import { formatJobWeekdayAndDate, formatMoney } from "@/lib/format";
@@ -30,15 +30,18 @@ function buildMessage(
 }
 
 /**
- * Direção única do §16.5: só a empresa inicia o contato. O clique é o ato de
- * escolher — por isso grava `contactedAt` antes de abrir o WhatsApp, e é esse
- * carimbo que alimenta a marcação de presença (§16.7).
+ * Direção única do §16.5: só a empresa inicia o contato.
  *
- * O telefone chega por prop mas nunca é renderizado: vai só para o `wa.me`.
+ * O telefone NÃO chega por prop. Ele é pedido no clique, um por vez, e é o
+ * próprio pedido que grava `contactedAt` — o clique é o ato de escolher. A
+ * ordem importa: pede, recebe o número, abre o WhatsApp. Se o pedido falhar,
+ * nada abre, porque não há número nenhum guardado na tela para abrir.
+ *
+ * O número nunca vira texto renderizado: vai do retorno da chamada direto
+ * para o `wa.me`. Número escrito na tela é número colado no grupo.
  */
 export function ContactCandidateButton({
   applicationId,
-  workerPhone,
   workerFirstName,
   companyName,
   job,
@@ -48,7 +51,6 @@ export function ContactCandidateButton({
   className,
 }: {
   applicationId: string;
-  workerPhone: string;
   workerFirstName: string;
   companyName: string;
   job: PublicJobPost;
@@ -58,14 +60,25 @@ export function ContactCandidateButton({
   className?: string;
 }) {
   const [contacted, setContacted] = useState(contactedAt !== null);
+  const [pending, setPending] = useState(false);
+  const [failed, setFailed] = useState(false);
 
-  const contact = () => {
-    void markApplicationContacted(applicationId);
+  const contact = async () => {
+    setPending(true);
+    setFailed(false);
+
+    const result = await getApplicationContact(applicationId);
+    setPending(false);
+
+    if (!result.ok) {
+      setFailed(true);
+      return;
+    }
+
     setContacted(true);
-
     const message = buildMessage(job, workerFirstName, companyName, shortCode);
     window.open(
-      `https://wa.me/${workerPhone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`,
+      `https://wa.me/${result.data.phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`,
       "_blank",
       "noopener,noreferrer",
     );
@@ -75,12 +88,18 @@ export function ContactCandidateButton({
     <div className={className}>
       <button
         type="button"
-        onClick={contact}
+        onClick={() => void contact()}
+        disabled={pending}
         className={cn(buttonVariants({ size }), size === "lg" && "h-12 w-full")}
       >
         <MessageCircle aria-hidden="true" className="size-3.5" />
-        Falar no WhatsApp
+        {pending ? "Abrindo…" : "Falar no WhatsApp"}
       </button>
+      {failed && (
+        <p className="text-destructive mt-2 text-xs">
+          Não foi possível abrir a conversa. Tente de novo.
+        </p>
+      )}
       {contacted && (
         <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs">
           <Check aria-hidden="true" className="size-3.5" />

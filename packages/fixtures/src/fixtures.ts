@@ -565,7 +565,7 @@ export const workers: Worker[] = [
     cpf: "97884467607",
     birthDate: "1970-10-19",
     cityId: DEFAULT_CITY_ID,
-    notificationCityIds: [DEFAULT_CITY_ID, "3105301", "3105301"],
+    notificationCityIds: [DEFAULT_CITY_ID, "3105301"],
     nearbyRadiusKm: 25,
     neighborhood: "Jardim dos Estados",
     roles: ["montagem_evento"],
@@ -3588,6 +3588,55 @@ export const applications: Application[] = [
 ];
 
 export const attendanceRecords: AttendanceRecord[] = [
+  // O quarto desfecho: `pending` é o estado de partida, a fila do painel da
+  // empresa — vaga encerrada e ninguém marcado ainda (§16.7). Nunca tem
+  // markedAt, e é o CHECK `attendance_pending_iff_unmarked` que trava isso do
+  // lado do banco. Existe aqui, e não só no banco, porque o mock e o seed
+  // carregam estas mesmas linhas.
+  {
+    id: "0b1f4a2e-9c31-4d70-8f52-4a6c0d1e7b31",
+    workerId: "9a164902-8780-4881-a4c4-bb3fadca6e08",
+    companyId: "fef3cd34-67b8-4571-a7e1-41636df13aaa",
+    jobPostId: "83ac8da5-a64f-41da-ab4d-16a75617d890",
+    status: "pending",
+    markedAt: null,
+    disputedAt: null,
+    disputeResolvedAt: null,
+    disputeOutcome: null,
+  },
+  {
+    id: "6d3c8b57-2e14-4a09-b7c6-1d05f8a3e942",
+    workerId: "b6df03a5-7584-49f2-ae5b-974c74570406",
+    companyId: "fef3cd34-67b8-4571-a7e1-41636df13aaa",
+    jobPostId: "83ac8da5-a64f-41da-ab4d-16a75617d890",
+    status: "pending",
+    markedAt: null,
+    disputedAt: null,
+    disputeResolvedAt: null,
+    disputeOutcome: null,
+  },
+  {
+    id: "a417e9c0-5b62-4f38-9d81-30c7b2e6f4a5",
+    workerId: "630e3eca-0de4-462e-a329-457abce61c84",
+    companyId: "966d33ed-ea6b-4a5c-a0ec-0d4b3097ab06",
+    jobPostId: "1bfdd15f-d22b-44c2-a34b-58b267d9968f",
+    status: "pending",
+    markedAt: null,
+    disputedAt: null,
+    disputeResolvedAt: null,
+    disputeOutcome: null,
+  },
+  {
+    id: "c92b71d4-8f05-4e63-a2b9-7c6d34e08f11",
+    workerId: "5fa8dcb6-f22e-4f4d-aa3c-8feae6399063",
+    companyId: "966d33ed-ea6b-4a5c-a0ec-0d4b3097ab06",
+    jobPostId: "1bfdd15f-d22b-44c2-a34b-58b267d9968f",
+    status: "pending",
+    markedAt: null,
+    disputedAt: null,
+    disputeResolvedAt: null,
+    disputeOutcome: null,
+  },
   {
     id: "7cf7fdd2-2068-46b4-a937-744e43866cbf",
     workerId: "5b77ead0-703a-4ad7-a0e2-cd29ace81a42",

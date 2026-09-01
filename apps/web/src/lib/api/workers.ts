@@ -19,7 +19,7 @@ import { err, ok } from "./result";
  * IP e não deveria escolher a hora. No mock não há requisição para ler, então
  * fica o não-endereço.
  *
- * ponytail: literal aqui, `request.ip` do Fastify na Fase 4.
+ * TODO: literal aqui, `request.ip` do Fastify na Fase 4.
  */
 const MOCK_ACCEPTANCE_IP = "0.0.0.0";
 

@@ -17,7 +17,7 @@ export type SessionRole = "anonymous" | "worker" | "company";
  * dado mutável chamam isto do navegador em modo mock, e um import estático
  * de next/headers derruba o módulo inteiro no bundle do cliente.
  *
- * ponytail: sem verificação por WhatsApp ainda (§11), então fora do modo mock
+ * TODO: sem verificação por WhatsApp ainda (§11), então fora do modo mock
  * não há como distinguir trabalhador de empresa — qualquer sessão real vira
  * "worker" (a única sessão real hoje é a de trabalhador). Em modo mock o
  * papel vem do seletor "ver como" da barra de demonstração.

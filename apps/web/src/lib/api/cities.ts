@@ -1,5 +1,5 @@
 import type { City } from "@extra/shared/types/city";
-import { cities, cityNeighbors, DEFAULT_CITY_ID } from "@/mocks/cities";
+import { cities, cityNeighbors, DEFAULT_CITY_ID } from "@extra/fixtures/cities";
 
 /**
  * Cidade é dado de referência: não muda, não expira e não vale simular
@@ -7,7 +7,7 @@ import { cities, cityNeighbors, DEFAULT_CITY_ID } from "@/mocks/cities";
  * devolve `ApiResult` — quem consome é tela, que precisa do nome na hora de
  * renderizar o bairro ao lado da cidade.
  *
- * ponytail: a lista inteira vem do bundle, hoje com 13 cidades. Vira busca
+ * TODO: a lista inteira vem do bundle, hoje com 13 cidades. Vira busca
  * remota se um dia as 5.571 do IBGE precisarem estar todas disponíveis.
  */
 const byId = new Map(cities.map((city) => [city.id, city]));

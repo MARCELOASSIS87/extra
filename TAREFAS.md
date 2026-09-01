@@ -137,6 +137,29 @@ Depois confira a home e a listagem em viewport de 360px.
 ```
 **Pronto quando:** em 360px nada corta, e no card só aparece "Destaque" de vez em quando.
 
+### 10.2. Sitemap e robots
+
+Não existe sitemap.ts nem robots.ts no projeto. A página de detalhe da vaga
+é a única aquisição gratuita do Extraqui, e hoje o Google não tem como
+descobrir nenhuma delas.
+
+```
+Crie app/sitemap.ts listando as vagas abertas por cidade, com a URL de
+duas partes /vagas/[cidade]/[slug], mais as páginas de listagem por
+cidade.
+Crie app/robots.ts liberando a indexação das rotas públicas e bloqueando
+/empresa e as áreas autenticadas.
+O sitemap lê pela camada de src/lib/api/, nunca das fixtures direto.
+Confirme que a URL do sitemap bate com o canonical do generateMetadata da
+vaga — se divergirem, o Google indexa uma e a outra vira duplicata.
+```
+**Pronto quando:** /sitemap.xml e /robots.txt respondem, e a URL de uma vaga
+no sitemap é idêntica ao canonical daquela vaga.
+
+> Não é urgente enquanto nada está no ar, mas precisa existir **antes** da
+> primeira vaga real ser publicada — senão o argumento de indexação do
+> §15 é teoria.
+
 ---
 
 ## Bloco de demonstração — fazer agora
