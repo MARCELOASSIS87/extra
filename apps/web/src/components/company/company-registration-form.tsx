@@ -4,13 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { CircleCheck } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import type { Company } from "@extra/shared/types/company";
 import {
   companyRegistrationSchema,
   type CompanyRegistrationInput,
 } from "@extra/shared/schemas/company";
 import { createCompany } from "@/lib/api/companies";
+import { DEFAULT_CITY_ID, listCities } from "@/lib/api/cities";
+import { FilterSheet } from "@/components/filters/filter-sheet";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +30,8 @@ export function CompanyRegistrationForm() {
     register,
     handleSubmit,
     setError,
+    setValue,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<CompanyRegistrationInput>({
     resolver: zodResolver(companyRegistrationSchema),
@@ -38,9 +42,14 @@ export function CompanyRegistrationForm() {
       responsibleName: "",
       phone: "",
       email: "",
+      // Onde a empresa está registrada. NÃO é a cidade da vaga — aquela é
+      // escolhida a cada anúncio, porque é onde o trabalho acontece.
+      cityId: DEFAULT_CITY_ID,
       termsAccepted: false,
     },
   });
+
+  const cityId = useWatch({ control, name: "cityId" });
 
   if (registered) return <SuccessState company={registered} />;
 
@@ -173,6 +182,31 @@ export function CompanyRegistrationForm() {
         {errors.email && (
           <p role="alert" className={errorClass}>
             {errors.email.message}
+          </p>
+        )}
+      </div>
+
+      <div className="grid gap-1.5">
+        <span className={labelClass}>Cidade da empresa</span>
+        <FilterSheet
+          label="Cidade da empresa"
+          value={cityId || null}
+          options={listCities().map((city) => ({
+            value: city.id,
+            label: `${city.name} — ${city.uf}`,
+          }))}
+          onChange={(next) =>
+            setValue("cityId", next ?? "", { shouldValidate: true })
+          }
+          allOptionLabel="Escolha a cidade"
+          emptyLabel="Escolha a cidade"
+        />
+        <p className="text-muted-foreground text-xs">
+          Onde a empresa fica. Cada vaga escolhe a cidade do trabalho.
+        </p>
+        {errors.cityId && (
+          <p role="alert" className={errorClass}>
+            {errors.cityId.message}
           </p>
         )}
       </div>

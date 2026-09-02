@@ -8,9 +8,17 @@ import {
 } from "@extra/shared/schemas/company";
 import { DEFAULT_CITY_ID } from "./cities";
 import { getCurrentCompanyId, nowIso, randomId, store, withMock } from "./mock";
+import { isLiveMode, request } from "./http";
 import { err, ok } from "./result";
 
 export async function getMyCompany(): Promise<ApiResult<Company | null>> {
+  if (isLiveMode) {
+    const result = await request<Company>("/v1/companies/me");
+    // Conta sem empresa não é erro de tela: é o estado "ainda não cadastrou".
+    if (!result.ok && result.error.code === "forbidden") return ok(null);
+    return result;
+  }
+
   const companyId = await getCurrentCompanyId();
   return withMock(() =>
     ok(store.companies.find((company) => company.id === companyId) ?? null),
@@ -20,6 +28,20 @@ export async function getMyCompany(): Promise<ApiResult<Company | null>> {
 export async function createCompany(
   input: CompanyRegistrationInput,
 ): Promise<ApiResult<Company>> {
+  if (isLiveMode) {
+    // O mesmo schema roda aqui e na rota: o cliente é contornável, então a
+    // validação local é conveniência, não defesa.
+    const parsed = companyRegistrationSchema.safeParse(input);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return err("validation_error", issue.message, issue.path.join("."));
+    }
+    return request<Company>("/v1/companies", {
+      method: "POST",
+      body: parsed.data,
+    });
+  }
+
   return withMock(() => {
     const parsed = companyRegistrationSchema.safeParse(input);
     if (!parsed.success) {
@@ -44,7 +66,8 @@ export async function createCompany(
       responsibleName: parsed.data.responsibleName,
       phone: parsed.data.phone,
       email: parsed.data.email,
-      cityId: DEFAULT_CITY_ID,
+      // Escolhida no formulário, não fixa: é onde a empresa está registrada.
+      cityId: parsed.data.cityId,
       // Assinatura começa em teste; cobrança é da empresa, nunca do trabalhador.
       subscriptionStatus: "trialing",
       subscriptionEndsAt: new Date(Date.now() + 14 * 86400000).toISOString(),
@@ -59,6 +82,10 @@ export async function createCompany(
 
 /** Painel da empresa: as vagas dela em qualquer estado, mais recentes antes. */
 export async function listMyCompanyJobs(): Promise<ApiResult<PublicJobPost[]>> {
+  if (isLiveMode) {
+    return request<PublicJobPost[]>("/v1/companies/me/jobs");
+  }
+
   const companyId = await getCurrentCompanyId();
   return withMock(() =>
     ok(

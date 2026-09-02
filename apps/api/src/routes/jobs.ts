@@ -11,9 +11,11 @@ import type { ApiResult, Paginated } from "@extra/shared/types/api";
 import type { PublicJobPost } from "@extra/shared/types/job";
 import { maxApplicationsFor } from "@extra/shared/lib/job";
 import { prisma } from "../db.js";
+import { countRoutedWorkers } from "../routing.js";
 import { failure, success } from "../http.js";
 import { publicReadRateLimit } from "../rate-limit.js";
 import { requireCompany } from "../auth/session.js";
+import { jobReachCountQuerySchema } from "@extra/shared/schemas/job";
 
 /**
  * Cabeçalhos para o ISR do Next (§4.1). A listagem muda toda vez que alguém
@@ -441,6 +443,43 @@ export function registerJobRoutes(app: FastifyInstance): void {
         include: jobInclude,
       });
       return reply.send(success(toPublicJobPost(job)));
+    },
+  );
+
+  /**
+   * Quantos trabalhadores seriam avisados de uma vaga com aquele alcance — o
+   * "só Poços: 34 garçons; até 50 km: 121" que a tela de publicar mostra ANTES
+   * de a empresa estreitar (§16.2). Sem esse número a decisão é tomada no
+   * escuro e o prejuízo fica invisível para os dois lados.
+   *
+   * Responde pela MESMA query que decide o push (`countRoutedWorkers`), e é o
+   * ponto inteiro da rota: se a conta que a tela mostra não for a que dispara,
+   * a empresa estreita o alcance olhando um número que o push não honra — a
+   * tela mente.
+   *
+   * É GET com querystring porque a tela chama a cada mudança de alcance, e o
+   * que se pergunta é sobre uma vaga que ainda não existe.
+   */
+  app.get(
+    "/v1/jobs/reach-count",
+    { preHandler: requireCompany },
+    async (request, reply) => {
+      const parsed = jobReachCountQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        return reply
+          .status(400)
+          .send(
+            failure(
+              "validation_error",
+              issue.message,
+              issue.path.join(".") || undefined,
+            ),
+          );
+      }
+
+      const count = await countRoutedWorkers(parsed.data);
+      return reply.send(success({ count }));
     },
   );
 }

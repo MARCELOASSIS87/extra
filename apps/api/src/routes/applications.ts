@@ -5,13 +5,15 @@ import { effectiveAttendanceStatus } from "@extra/shared/lib/attendance";
 import type {
   Application,
   ApplicationContact,
-  JobApplicant,
+  JobCandidate,
+  JobCandidates,
   MyApplication,
 } from "@extra/shared/types/application";
 import type { AttendanceSummary } from "@extra/shared/types/attendance";
 import type { WorkerPublicProfile } from "@extra/shared/types/worker";
 import type { JobRole } from "@extra/shared/types/job";
 import { prisma } from "../db.js";
+import { loadWorkerProfiles } from "../worker-profiles.js";
 import { failure, success } from "../http.js";
 import { requireCompany, requireWorker } from "../auth/session.js";
 import { jobInclude, toPublicJobPost } from "./jobs.js";
@@ -32,7 +34,7 @@ type ApplicationRow = {
   confirmedAt: Date | null;
 };
 
-const toApplication = (row: ApplicationRow): Application => ({
+export const toApplication = (row: ApplicationRow): Application => ({
   id: row.id,
   shortCode: row.shortCode.trim(), // char(4): o Postgres devolve com padding
   jobPostId: row.jobPostId,
@@ -257,16 +259,21 @@ export function registerApplicationRoutes(app: FastifyInstance): void {
   );
 
   /**
-   * Os candidatos de uma vaga da empresa (§8).
+   * Os candidatos de uma vaga da empresa (§8, §16.5) — a vaga junto, porque as
+   * duas telas da empresa precisam dela (título, data, valor da mensagem) e
+   * ela já foi validada aqui pela posse.
    *
    * O perfil sai da VIEW `worker_public_profiles`, nunca da tabela `workers`:
    * a view não seleciona cpf nem birth_date e não alcança `accounts`, então
    * não existe coluna de telefone para vazar. Não se protege com `select` o
-   * que se pode simplesmente não conseguir ler.
+   * que se pode simplesmente não conseguir ler. O nome completo é a única
+   * exceção, e é da regra: a empresa daquela vaga vê o nome de quem se
+   * candidatou a ela.
    *
-   * TODO: sem `presentWithCompany` e sem `attendanceStatus`, que a tela
-   * do mock mostra. São mais dois agregados e nada nesta tarefa depende
-   * deles; entram junto com a marcação de presença.
+   * `presentWithCompany` é quantas vezes ESTA empresa já registrou presença
+   * daquela pessoa ("você já contratou fulano N vezes"); `attendanceStatus` é
+   * o que ela já marcou NESTA vaga, para a tela não oferecer marcar duas
+   * vezes. Os dois em consulta agregada, nenhuma dentro de laço.
    */
   app.get<{ Params: { id: string } }>(
     "/v1/jobs/:id/applicants",
@@ -288,7 +295,7 @@ export function registerApplicationRoutes(app: FastifyInstance): void {
       // encontrada, e 404 não confirma que o id existe.
       const job = await prisma.jobPost.findFirst({
         where: { id: request.params.id, companyId },
-        select: { id: true, cityId: true },
+        include: jobInclude,
       });
       if (!job) return notFound(reply, "Vaga não encontrada.");
 
@@ -301,108 +308,79 @@ export function registerApplicationRoutes(app: FastifyInstance): void {
         .map((item) => item.workerId)
         .filter((id): id is string => id !== null);
 
-      if (workerIds.length === 0) {
-        return reply.send(success([] satisfies JobApplicant[]));
+      const [{ applicantById, distanceById }, presence, marked] =
+        await Promise.all([
+          loadWorkerProfiles(workerIds, job.cityId, companyId),
+          // Presenças que ESTA empresa já registrou para estas pessoas. Os
+          // três ids são alcançados pela candidatura: `attendance_records` não
+          // guarda cópia de worker/company/job_post — ver o schema.
+          workerIds.length > 0
+            ? prisma.attendanceRecord.findMany({
+                where: {
+                  status: "present",
+                  application: {
+                    workerId: { in: workerIds },
+                    jobPost: { companyId },
+                  },
+                },
+                select: { application: { select: { workerId: true } } },
+              })
+            : Promise.resolve([]),
+          // O que já foi marcado NESTA vaga.
+          workerIds.length > 0
+            ? prisma.attendanceRecord.findMany({
+                where: {
+                  application: {
+                    jobPostId: job.id,
+                    workerId: { in: workerIds },
+                  },
+                },
+                select: {
+                  status: true,
+                  application: { select: { workerId: true } },
+                },
+              })
+            : Promise.resolve([]),
+        ]);
+
+      // Contado aqui e não com um `groupBy`: o agrupamento teria de ser por
+      // uma coluna que esta tabela não tem, e o volume é o de uma vaga.
+      const presentById = new Map<string, number>();
+      for (const row of presence) {
+        const id = row.application.workerId;
+        if (id) presentById.set(id, (presentById.get(id) ?? 0) + 1);
       }
-
-      // Três leituras em lote, nenhuma dentro de laço: a view do perfil, a
-      // view do histórico, as funções e a distância.
-      const [profiles, summaries, roles, neighbors] = await Promise.all([
-        prisma.$queryRaw<
-          {
-            id: string;
-            first_name: string;
-            last_name_initial: string;
-            city_name: string;
-            neighborhood: string;
-            experience: string;
-            intro_video_key: string | null;
-            has_complete_profile: boolean;
-            member_since: Date;
-          }[]
-        >`SELECT * FROM worker_public_profiles WHERE id = ANY(${workerIds}::uuid[])`,
-        prisma.$queryRaw<
-          {
-            worker_id: string;
-            present: bigint;
-            absent: bigint;
-            distinct_companies: bigint;
-            has_history: boolean;
-          }[]
-        >`SELECT * FROM worker_attendance_summary WHERE worker_id = ANY(${workerIds}::uuid[])`,
-        prisma.workerRole.findMany({
-          where: { workerId: { in: workerIds } },
-          select: { workerId: true, role: true },
-        }),
-        prisma.$queryRaw<{ worker_id: string; distance_km: number }[]>`
-          SELECT w.id AS worker_id, cn.distance_km
-            FROM workers w
-            JOIN city_neighbors cn
-              ON cn.city_id = w.city_id AND cn.neighbor_city_id = ${job.cityId}
-           WHERE w.id = ANY(${workerIds}::uuid[])`,
-      ]);
-
-      const profileById = new Map(profiles.map((row) => [row.id, row]));
-      const summaryById = new Map(summaries.map((row) => [row.worker_id, row]));
-      const distanceById = new Map(
-        neighbors.map((row) => [row.worker_id, row.distance_km]),
+      const markedById = new Map(
+        marked.flatMap((row) =>
+          row.application.workerId
+            ? [[row.application.workerId, row.status] as const]
+            : [],
+        ),
       );
-      const rolesById = new Map<string, JobRole[]>();
-      for (const { workerId, role } of roles) {
-        rolesById.set(workerId, [...(rolesById.get(workerId) ?? []), role]);
-      }
 
-      const emptySummary: AttendanceSummary = {
-        present: 0,
-        absent: 0,
-        distinctCompanies: 0,
-        // O servidor é quem decide: a interface nunca interpreta um zero, e
-        // quem não tem histórico exibe "Novo por aqui" (§16.6).
-        hasHistory: false,
-      };
-
-      const body: JobApplicant[] = applications.flatMap((application) => {
-        const profile = application.workerId
-          ? profileById.get(application.workerId)
+      const candidates: JobCandidate[] = applications.flatMap((application) => {
+        const worker = application.workerId
+          ? applicantById.get(application.workerId)
           : undefined;
         // Sem perfil na view: conta desativada. Some da lista em vez de
         // aparecer pela metade.
-        if (!profile || !application.workerId) return [];
-
-        const summary = summaryById.get(application.workerId);
-        const worker: WorkerPublicProfile = {
-          id: profile.id,
-          firstName: profile.first_name,
-          lastNameInitial: profile.last_name_initial,
-          cityName: profile.city_name,
-          neighborhood: profile.neighborhood,
-          roles: rolesById.get(application.workerId) ?? [],
-          experience: profile.experience,
-          // TODO: a URL assinada do MinIO é a tarefa 25. Até lá, quem tem
-          // vídeo aparece com o selo e sem player, em vez de com um link morto.
-          introVideoUrl: null,
-          introVideoPosterUrl: null,
-          hasCompleteProfile: profile.has_complete_profile,
-          attendance: summary
-            ? {
-                present: Number(summary.present),
-                absent: Number(summary.absent),
-                distinctCompanies: Number(summary.distinct_companies),
-                hasHistory: summary.has_history,
-              }
-            : emptySummary,
-          memberSince: profile.member_since.toISOString(),
-        };
+        if (!worker || !application.workerId) return [];
 
         return [
           {
             application: toApplication(application),
             worker,
             distanceKm: distanceById.get(application.workerId) ?? null,
+            presentWithCompany: presentById.get(application.workerId) ?? 0,
+            attendanceStatus: markedById.get(application.workerId) ?? null,
           },
         ];
       });
 
+      const body: JobCandidates = {
+        job: toPublicJobPost(job),
+        candidates,
+      };
       return reply.send(success(body));
     },
   );
@@ -448,7 +426,13 @@ export function registerApplicationRoutes(app: FastifyInstance): void {
         select: {
           id: true,
           contactedAt: true,
-          worker: { select: { account: { select: { phone: true } } } },
+          worker: {
+            select: {
+              firstName: true,
+              lastName: true,
+              account: { select: { phone: true } },
+            },
+          },
         },
       });
 
@@ -458,9 +442,13 @@ export function registerApplicationRoutes(app: FastifyInstance): void {
         return notFound(reply, "Candidatura não encontrada.");
       }
 
+      // O nome completo sai JUNTO com o telefone: pedir o contato é o ato de
+      // escolher, e é ele que abre os dois (§16.5, regra 8). A lista da tela
+      // atualiza com este valor sem precisar recarregar.
       const body: ApplicationContact = {
         applicationId: application.id,
         phone: application.worker.account.phone,
+        fullName: `${application.worker.firstName} ${application.worker.lastName}`,
         contactedAt: application.contactedAt.toISOString(),
       };
       return reply.send(success(body));

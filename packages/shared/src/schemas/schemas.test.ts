@@ -246,9 +246,18 @@ const validCompany = {
   responsibleName: "Ana Silva",
   phone: "+5511987654321",
   email: "contato@buffetsilva.com.br",
+  // Onde a empresa está registrada. A cidade da VAGA é outra coisa: escolhida
+  // a cada anúncio, porque é onde o trabalho acontece.
+  cityId: "3151800",
   termsAccepted: true,
 };
 assert.equal(companyRegistrationSchema.safeParse(validCompany).success, true);
+assert.equal(
+  companyRegistrationSchema.safeParse({ ...validCompany, cityId: undefined })
+    .success,
+  false,
+  "empresa sem cidade não passa",
+);
 assert.equal(
   companyRegistrationSchema.safeParse({
     ...validCompany,

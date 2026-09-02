@@ -313,9 +313,18 @@ async function main() {
     (item) => item.worker.id === currentWorkerId,
   );
   assert.ok(candidate, "candidato aparece para a empresa dona da vaga");
+  // O nome completo passa pelo MESMO portão do telefone (§16.5, regra 8):
+  // antes de a empresa chamar, é null — e o primeiro nome com a inicial
+  // continuam vindo, para a tela nunca ficar sem nome nenhum.
+  assert.equal(
+    candidate.worker.fullName,
+    null,
+    "o nome completo não sai antes de a empresa chamar",
+  );
   assert.ok(
-    candidate.worker.fullName.length > 0,
-    "WorkerApplicantProfile traz o nome completo",
+    candidate.worker.firstName.length > 0 &&
+      candidate.worker.lastNameInitial.length > 0,
+    "antes do contato a tela ainda tem primeiro nome e inicial",
   );
   assert.ok(
     !("cpf" in candidate.worker) && !("birthDate" in candidate.worker),
@@ -332,6 +341,10 @@ async function main() {
     await call(() => getApplicationContact(candidate.application.id)),
   );
   assert.ok(contact.phone.startsWith("+55"), "o contato devolve o telefone");
+  assert.ok(
+    contact.fullName.length > 0,
+    "o contato devolve o nome completo junto com o telefone",
+  );
   assert.notEqual(
     contact.contactedAt,
     null,
@@ -344,6 +357,22 @@ async function main() {
   );
   assert.equal(again.contactedAt, contact.contactedAt);
   assert.equal(again.phone, contact.phone);
+
+  // Depois de chamar, a lista passa a trazer o nome completo — e SÓ daquela
+  // candidatura: os outros candidatos da mesma vaga continuam com null.
+  const afterContact = unwrap(await call(() => listJobCandidates(created.id)));
+  const contacted = afterContact.candidates.find(
+    (item) => item.worker.id === currentWorkerId,
+  );
+  assert.equal(contacted?.worker.fullName, contact.fullName);
+  for (const other of afterContact.candidates) {
+    if (other.worker.id === currentWorkerId) continue;
+    assert.equal(
+      other.worker.fullName,
+      null,
+      "chamar um candidato não abre o nome dos outros",
+    );
+  }
 
   const withdrawn = unwrap(
     await call(() => withdrawApplication(application.id)),
@@ -565,6 +594,7 @@ async function main() {
         legalName: "Empresa Inválida LTDA",
         tradeName: "Inválida",
         responsibleName: "Fulano de Tal",
+        cityId: DEFAULT_CITY_ID,
         phone: "+5535991258324",
         email: "contato@invalida.com.br",
         termsAccepted: true,
@@ -580,6 +610,7 @@ async function main() {
     responsibleName: "Responsável de Teste",
     phone: "+5535991258399",
     email: "contato@novaempresa.com.br",
+    cityId: DEFAULT_CITY_ID,
   };
   expectError(
     await call(() =>

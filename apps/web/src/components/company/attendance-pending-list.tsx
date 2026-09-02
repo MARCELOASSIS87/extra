@@ -6,8 +6,8 @@ import { CalendarDays, Clock, MapPin } from "lucide-react";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import type { listAttendancePending } from "@/lib/api/attendance";
 import { AttendanceMarkButtons } from "@/components/company/attendance-mark-buttons";
-import { ContactCandidateButton } from "@/components/company/contact-candidate-button";
 import { formatJobDate, formatTimeRange } from "@/lib/format";
+import { candidateDisplayName } from "@/lib/candidate-name";
 
 /**
  * Derivado do retorno de `listAttendancePending()`, não redeclarado: forma de
@@ -28,13 +28,7 @@ const itemKey = (item: PendingItem) => `${item.job.id}:${item.worker.id}`;
  * depois do evento: sem nome, função, data e local juntos, quem marca não
  * lembra quem foi nem em qual vaga.
  */
-export function AttendancePendingList({
-  items,
-  companyName,
-}: {
-  items: PendingItem[];
-  companyName: string;
-}) {
+export function AttendancePendingList({ items }: { items: PendingItem[] }) {
   const [pending, setPending] = useState(items);
 
   if (pending.length === 0) {
@@ -56,7 +50,13 @@ export function AttendancePendingList({
           <li key={key} className="rounded-xl border p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate font-medium">{item.worker.fullName}</p>
+                {/* Nome completo para quem a empresa chamou, "João S." para
+                    quem ela não chamou — o mesmo portão do §16.5, decidido no
+                    servidor. Sem aviso nenhum: o contraste entre os dois
+                    cartões já diz à empresa quem ela procurou. */}
+                <p className="truncate font-medium">
+                  {candidateDisplayName(item.worker)}
+                </p>
                 <p className="text-muted-foreground mt-0.5 text-xs">
                   {JOB_ROLE_LABELS[item.job.role]}
                 </p>
@@ -92,20 +92,6 @@ export function AttendancePendingList({
                 <dd className="min-w-0 truncate">{item.job.neighborhood}</dd>
               </div>
             </dl>
-
-            <div className="mt-3">
-              {/* Mesmo caminho da lista de candidatos, sem exceção: contatar
-                  daqui é escolher aquela pessoa, e o pedido do telefone é o
-                  que registra `contactedAt` (§16.5). */}
-              <ContactCandidateButton
-                applicationId={item.applicationId}
-                workerFirstName={item.worker.firstName}
-                companyName={companyName}
-                job={item.job}
-                shortCode={item.shortCode}
-                contactedAt={null}
-              />
-            </div>
 
             <div className="mt-3">
               <AttendanceMarkButtons

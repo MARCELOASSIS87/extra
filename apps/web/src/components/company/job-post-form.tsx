@@ -13,6 +13,7 @@ import {
 } from "@extra/shared/schemas/job";
 import type { JobReach } from "@extra/shared/types/job";
 import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
+import { saoPauloToUtc } from "@extra/shared/lib/datetime";
 import { countReachedWorkers, createJob } from "@/lib/api/jobs";
 import { cityName, listCities } from "@/lib/api/cities";
 import { getMyCompany } from "@/lib/api/companies";
@@ -100,6 +101,18 @@ export function JobPostForm() {
   const role = useWatch({ control, name: "role" });
   const reach = useWatch({ control, name: "reach" });
   const reachRadiusKm = useWatch({ control, name: "reachRadiusKm" });
+  const date = useWatch({ control, name: "date" });
+  const startTime = useWatch({ control, name: "startTime" });
+
+  /**
+   * O instante de início, montado igual ao que `jobPostSchema` monta no envio
+   * — a contagem tem que perguntar pela MESMA vaga que vai ser publicada.
+   *
+   * `undefined` enquanto os dois campos não estiverem preenchidos: aí o
+   * servidor conta sem o recorte de dia e período, e o número volta como TETO.
+   */
+  const startsAt =
+    date && startTime ? saoPauloToUtc(date, startTime) : undefined;
 
   if (published) return <SuccessState job={published} />;
 
@@ -358,6 +371,7 @@ export function JobPostForm() {
         radiusKm={reachRadiusKm}
         role={role}
         cityId={cityId}
+        startsAt={startsAt}
         onChange={(next) => {
           setValue("reach", next.reach);
           setValue("reachRadiusKm", next.radiusKm, { shouldValidate: true });
@@ -414,6 +428,7 @@ function ReachField({
   radiusKm,
   role,
   cityId,
+  startsAt,
   onChange,
   error,
 }: {
@@ -423,6 +438,11 @@ function ReachField({
   /** A cidade DA VAGA: o alcance e a contagem giram em torno dela, não da
    *  cidade em que a empresa está registrada. */
   cityId: string;
+  /**
+   * Início da vaga, quando já preenchido. Ausente, a contagem ignora a
+   * disponibilidade e o número é um TETO — e a copy tem que dizer isso.
+   */
+  startsAt?: string;
   onChange: (next: { reach: JobReach; radiusKm: number | null }) => void;
   error?: string;
 }) {
@@ -452,6 +472,7 @@ function ReachField({
           role,
           reach: option.reach,
           reachRadiusKm: option.radius,
+          startsAt,
         }),
       ]),
     ).then((entries) => {
@@ -461,7 +482,7 @@ function ReachField({
     return () => {
       active = false;
     };
-  }, [role, cityId]);
+  }, [role, cityId, startsAt]);
 
   const avisados = (key: string) => {
     // O número é a razão de o campo existir: enquanto não chega, dizer que
@@ -474,9 +495,18 @@ function ReachField({
       );
     }
     const total = counts[key];
+    // Sem data, o número ignora a disponibilidade de dia e período: é um TETO,
+    // e prometer alcance cravado a quem paga é o pior lugar para errar. Com a
+    // data preenchida o recorte é o mesmo do push, e aí o número é exato.
     return (
       <span className="text-muted-foreground block text-xs">
-        {total === 1 ? "1 pessoa avisada" : `${total} pessoas avisadas`}
+        {startsAt
+          ? total === 1
+            ? "1 pessoa será avisada"
+            : `${total} pessoas serão avisadas`
+          : total === 1
+            ? "até 1 pessoa será avisada"
+            : `até ${total} pessoas serão avisadas`}
       </span>
     );
   };

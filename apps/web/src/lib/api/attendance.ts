@@ -1,6 +1,7 @@
 import type { ApiResult } from "@extra/shared/types/api";
 import type {
   AttendanceMarkInput,
+  AttendancePendingItem,
   AttendanceRecord,
 } from "@extra/shared/types/attendance";
 import type { PublicJobPost } from "@extra/shared/types/job";
@@ -21,6 +22,7 @@ import {
   effectiveAttendanceStatus,
   isUnderDispute,
 } from "@extra/shared/lib/attendance";
+import { isLiveMode, request } from "./http";
 import { err, ok } from "./result";
 
 /**
@@ -31,6 +33,13 @@ export async function markAttendance(
   jobId: string,
   input: AttendanceMarkInput,
 ): Promise<ApiResult<AttendanceRecord>> {
+  if (isLiveMode) {
+    return request<AttendanceRecord>(
+      `/v1/jobs/${encodeURIComponent(jobId)}/attendance`,
+      { method: "POST", body: input },
+    );
+  }
+
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const job = store.jobPosts.find((item) => item.id === jobId);
@@ -104,6 +113,12 @@ export async function listAttendancePending(): Promise<
     }[]
   >
 > {
+  if (isLiveMode) {
+    return request<AttendancePendingItem[]>(
+      "/v1/companies/me/attendance/pending",
+    );
+  }
+
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const now = nowIso();
@@ -138,7 +153,7 @@ export async function listAttendancePending(): Promise<
         return [
           {
             job: toPublicJobPost(job),
-            worker: toApplicantProfile(worker),
+            worker: toApplicantProfile(worker, item.contactedAt),
             applicationId: item.id,
             shortCode: item.shortCode,
           },
@@ -154,6 +169,13 @@ export async function listAttendancePending(): Promise<
 export async function listMyAttendance(): Promise<
   ApiResult<AttendanceRecord[]>
 > {
+  // TODO: sem rota. O histórico do próprio trabalhador não tem endpoint —
+  // o que existe é a fila de pendências DA EMPRESA.
+  // Espera `GET /v1/me/attendance`.
+  if (isLiveMode) {
+    return err("not_implemented", "O histórico ainda não está disponível.");
+  }
+
   const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const now = nowIso();
@@ -180,6 +202,13 @@ export async function listMyAttendance(): Promise<
 export async function disputeAttendance(
   id: string,
 ): Promise<ApiResult<AttendanceRecord>> {
+  if (isLiveMode) {
+    return request<AttendanceRecord>(
+      `/v1/attendance/${encodeURIComponent(id)}/dispute`,
+      { method: "POST" },
+    );
+  }
+
   const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const record = store.attendanceRecords.find((item) => item.id === id);

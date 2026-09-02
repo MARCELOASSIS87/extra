@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cityIdSchema } from "./city";
 import { phoneE164Schema } from "./phone";
 
 function isValidCnpj(cnpj: string): boolean {
@@ -22,8 +23,6 @@ function isValidCnpj(cnpj: string): boolean {
 }
 
 // Cadastro da empresa: CNPJ, razão social, responsável, telefone e e-mail (mo-negocio §5).
-// Cidade não entra aqui: a empresa herda a cidade da conta, atribuída pelo
-// servidor. Quando existir empresa em mais de uma cidade, vira `cityId`.
 export const companyRegistrationSchema = z.object({
   cnpj: z
     .string()
@@ -34,6 +33,12 @@ export const companyRegistrationSchema = z.object({
   responsibleName: z.string().trim().min(1, "Informe o nome do responsável"),
   phone: phoneE164Schema,
   email: z.email("E-mail inválido"),
+  /**
+   * Onde a empresa está registrada. NÃO é a cidade da vaga — aquela é
+   * escolhida a cada anúncio, porque é onde o trabalho acontece. Esta serve
+   * de padrão no formulário de publicar e de contexto no cadastro.
+   */
+  cityId: cityIdSchema,
   termsAccepted: z
     .boolean()
     .refine((value) => value, "É preciso aceitar os termos de uso"),
@@ -42,3 +47,17 @@ export const companyRegistrationSchema = z.object({
 export type CompanyRegistrationInput = z.infer<
   typeof companyRegistrationSchema
 >;
+
+/**
+ * PATCH /v1/companies/me — parcial, como todo cadastro que salva por etapa.
+ *
+ * O DOCUMENTO não entra: identidade não se reescreve por PATCH. Trocar o CNPJ
+ * de uma empresa já cadastrada é criar outra empresa com o histórico da
+ * primeira — vaga publicada, candidatura e presença marcada passariam a
+ * pertencer a quem não as gerou.
+ */
+export const companyProfileUpdateSchema = companyRegistrationSchema
+  .omit({ cnpj: true, termsAccepted: true })
+  .partial();
+
+export type CompanyProfileUpdate = z.infer<typeof companyProfileUpdateSchema>;

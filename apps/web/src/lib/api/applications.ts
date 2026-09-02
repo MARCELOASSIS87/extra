@@ -2,7 +2,9 @@ import type { ApiResult } from "@extra/shared/types/api";
 import type {
   Application,
   ApplicationContact,
+  JobCandidates,
   MyApplication,
+  NewApplicant,
 } from "@extra/shared/types/application";
 import { effectiveAttendanceStatus } from "@extra/shared/lib/attendance";
 import type { PublicJobPost } from "@extra/shared/types/job";
@@ -25,6 +27,7 @@ import {
 } from "./mock";
 import { maxApplicationsFor } from "@extra/shared/lib/job";
 import { cityDistanceKm } from "./cities";
+import { isLiveMode, request } from "./http";
 import { err, ok } from "./result";
 
 /**
@@ -39,6 +42,13 @@ export async function applyToJob(
   // Não há checagem de cidade aqui, e é de propósito (§16.2): cidade assinada
   // decide quem recebe AVISO. Ver e se candidatar é livre — quem achou a vaga
   // sabe se consegue chegar melhor do que a plataforma.
+  if (isLiveMode) {
+    return request<Application>(
+      `/v1/jobs/${encodeURIComponent(jobId)}/applications`,
+      { method: "POST" },
+    );
+  }
+
   const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const job = store.jobPosts.find((item) => item.id === jobId);
@@ -91,6 +101,12 @@ export async function applyToJob(
 export async function getApplicationContact(
   applicationId: string,
 ): Promise<ApiResult<ApplicationContact>> {
+  if (isLiveMode) {
+    return request<ApplicationContact>(
+      `/v1/applications/${encodeURIComponent(applicationId)}/contact`,
+    );
+  }
+
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const application = store.applications.find(
@@ -122,12 +138,25 @@ export async function getApplicationContact(
       );
     }
 
-    return ok({ applicationId, phone: worker.phone, contactedAt });
+    // O nome completo sai junto com o telefone: é a mesma decisão (§16.5).
+    return ok({
+      applicationId,
+      phone: worker.phone,
+      fullName: worker.fullName,
+      contactedAt,
+    });
   });
 }
 
 /** GET /v1/me/applications — mais recentes primeiro. */
 export async function listMyApplications(): Promise<ApiResult<Application[]>> {
+  if (isLiveMode) {
+    // A rota devolve a candidatura COM a vaga; aqui só a candidatura importa.
+    const result = await request<MyApplication[]>("/v1/me/applications");
+    if (!result.ok) return result;
+    return ok(result.data.map((item) => item.application));
+  }
+
   const workerId = await getCurrentWorkerId();
   return withMock(() =>
     ok(
@@ -146,6 +175,20 @@ export async function listMyApplications(): Promise<ApiResult<Application[]>> {
 export async function listMyApplicationsWithJob(): Promise<
   ApiResult<MyApplication[]>
 > {
+  if (isLiveMode) {
+    // A rota já devolve `MyApplication[]`, com `attendanceStatus` derivado
+    // pelo servidor — a tela nunca conclui falta de um silêncio (§16.7).
+    const result = await request<MyApplication[]>("/v1/me/applications");
+    if (!result.ok) return result;
+    // O mock ordena pela vaga mais próxima; a rota, pela candidatura mais
+    // recente. A ordem é da tela, então reordena aqui.
+    return ok(
+      [...result.data].sort((a, b) =>
+        a.job.startsAt.localeCompare(b.job.startsAt),
+      ),
+    );
+  }
+
   const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const now = nowIso();
@@ -190,6 +233,13 @@ export async function listMyApplicationsWithJob(): Promise<
 export async function confirmApplication(
   id: string,
 ): Promise<ApiResult<Application>> {
+  if (isLiveMode) {
+    return request<Application>(
+      `/v1/applications/${encodeURIComponent(id)}/confirm`,
+      { method: "POST" },
+    );
+  }
+
   const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const application = store.applications.find((item) => item.id === id);
@@ -218,6 +268,12 @@ export async function confirmApplication(
 export async function withdrawApplication(
   id: string,
 ): Promise<ApiResult<Application>> {
+  // TODO: sem rota. Retirar candidatura não tem endpoint — só confirmar.
+  // Espera `POST /v1/applications/:id/withdraw`.
+  if (isLiveMode) {
+    return err("not_implemented", "Ainda não é possível retirar por aqui.");
+  }
+
   const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const application = store.applications.find((item) => item.id === id);
@@ -246,6 +302,14 @@ export async function withdrawApplication(
 export async function listJobApplicants(
   jobId: string,
 ): Promise<ApiResult<WorkerPublicProfile[]>> {
+  if (isLiveMode) {
+    const result = await request<JobCandidates>(
+      `/v1/jobs/${encodeURIComponent(jobId)}/applicants`,
+    );
+    if (!result.ok) return result;
+    return ok(result.data.candidates.map((item) => item.worker));
+  }
+
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const job = store.jobPosts.find((item) => item.id === jobId);
@@ -297,6 +361,12 @@ export async function listJobCandidates(jobId: string): Promise<
     }[];
   }>
 > {
+  if (isLiveMode) {
+    return request<JobCandidates>(
+      `/v1/jobs/${encodeURIComponent(jobId)}/applicants`,
+    );
+  }
+
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const job = store.jobPosts.find((item) => item.id === jobId);
@@ -313,7 +383,7 @@ export async function listJobCandidates(jobId: string): Promise<
         return [
           {
             application,
-            worker: toApplicantProfile(worker),
+            worker: toApplicantProfile(worker, application.contactedAt),
             distanceKm: cityDistanceKm(worker.cityId, job.cityId),
             presentWithCompany: store.attendanceRecords.filter(
               (record) =>
@@ -352,6 +422,10 @@ export async function listNewApplicants(): Promise<
     }[]
   >
 > {
+  if (isLiveMode) {
+    return request<NewApplicant[]>("/v1/companies/me/applicants");
+  }
+
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const items = store.applications

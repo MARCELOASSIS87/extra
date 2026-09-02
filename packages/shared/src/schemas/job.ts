@@ -214,3 +214,28 @@ export const publicJobsQuerySchema = z.object({
 });
 
 export type PublicJobsQuery = z.infer<typeof publicJobsQuerySchema>;
+
+/**
+ * Query de `GET /v1/jobs/reach-count` (§16.2): quantos seriam avisados de uma
+ * vaga que ainda NÃO existe. Por isso é querystring e não corpo — a tela de
+ * publicar pergunta a cada mudança de alcance, antes de gravar nada.
+ *
+ * `startsAt` entra porque a disponibilidade do trabalhador é por dia da semana
+ * e período: sem o instante, a conta ignoraria metade do filtro do §16.2 e
+ * mostraria um número maior que o do push.
+ */
+export const jobReachCountQuerySchema = z.object({
+  cityId: cityIdSchema,
+  role: jobRoleSchema,
+  reach: jobReachSchema,
+  // Coerce: querystring é texto. `null` quando o alcance não é por raio.
+  reachRadiusKm: z.coerce.number().int().positive().nullable().catch(null),
+  /**
+   * Opcional porque a tela pergunta o alcance antes de a data estar
+   * preenchida. Ausente, a contagem ignora o recorte de dia e período e sai
+   * MAIOR que o push — é um teto, nunca uma promessa a menos.
+   */
+  startsAt: z.iso.datetime().optional(),
+});
+
+export type JobReachCountQuery = z.infer<typeof jobReachCountQuerySchema>;

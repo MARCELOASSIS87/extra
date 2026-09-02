@@ -64,11 +64,25 @@ export interface WorkerPublicProfile {
 
 /**
  * O que a empresa daquela vaga enxerga do candidato dela (§16.5): o perfil
- * público mais nome completo e disponibilidade. Servido só para a empresa
- * dona da vaga, e só enquanto houver candidatura ativa. Nunca carrega cpf nem
- * birthDate — é o que separa este tipo do `Worker`.
+ * público mais disponibilidade, e o nome completo SÓ depois de ela chamar.
+ * Servido só para a empresa dona da vaga, e só enquanto houver candidatura
+ * ativa. Nunca carrega cpf nem birthDate — é o que separa este tipo do
+ * `Worker`.
  */
 export interface WorkerApplicantProfile extends WorkerPublicProfile {
-  fullName: string;
+  /**
+   * `null` até a empresa pedir o contato (§16.5, regra 8). O nome completo
+   * passa pelo MESMO portão do telefone: sai no ato de escolher, não antes.
+   *
+   * Uma assinatura mensal não pode virar colheita de nomes completos — para
+   * ESCOLHER quem chamar, a empresa não precisa do sobrenome; ela decide por
+   * função, distância, disponibilidade e histórico. O sobrenome só passa a
+   * importar quando já existe uma conversa, e aí `contactedAt` já registrou
+   * que a escolha aconteceu.
+   *
+   * Nulo NÃO é ausência de nome na tela: `firstName` e `lastNameInitial`
+   * continuam vindo, e é isso que a lista mostra até o contato.
+   */
+  fullName: string | null;
   availability: Availability[];
 }

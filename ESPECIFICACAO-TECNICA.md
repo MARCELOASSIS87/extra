@@ -230,7 +230,27 @@ export interface WorkerPublicProfile {
   attendance: AttendanceSummary
   memberSince: string
 }
+
+// O que a empresa DAQUELA vaga enxerga do candidato dela. O público mais
+// disponibilidade — e o nome completo só depois de ela chamar.
+export interface WorkerApplicantProfile extends WorkerPublicProfile {
+  fullName: string | null   // null até contactedAt. Mesmo portão do telefone
+  availability: Availability[]
+}
 ```
+
+**O nome completo passa pelo MESMO portão do telefone (§16.5).** `fullName` é `null` enquanto a
+empresa não pediu o contato; até lá a lista mostra primeiro nome e inicial, que já vêm no perfil
+público. Duas razões, e a segunda é a que decide:
+
+1. **Para ESCOLHER, a empresa não precisa do sobrenome.** Ela decide por função, distância,
+   disponibilidade e histórico — o sobrenome só passa a importar quando já existe uma conversa.
+2. **Uma assinatura mensal não pode virar colheita de nomes completos.** Sem o portão, qualquer
+   empresa paga um mês, abre as vagas e exporta nome completo de toda a base da cidade sem
+   chamar ninguém. Com ele, cada nome revelado custa um `contactedAt` — que é registro de que a
+   escolha aconteceu, e é auditável.
+
+Nome completo mais cidade e bairro identifica uma pessoa; primeiro nome mais inicial, não.
 
 **`cityId` e `notificationCityIds` são coisas diferentes.** O primeiro é onde a pessoa mora —
 serve para a empresa entender o bairro, para pré-marcar a assinatura de aviso e como centro do
@@ -446,11 +466,23 @@ POST   /v1/jobs/:id/applications    [trabalhador]  409 se atingiu o teto
 GET    /v1/me/applications          [trabalhador]
 POST   /v1/applications/:id/confirm [trabalhador]
 
-GET    /v1/jobs/:id/applicants      [empresa] → WorkerPublicProfile[]
+GET    /v1/jobs/:id/applicants      [empresa] → { job, candidates[] } — perfil de candidato,
+                                    distância, presentWithCompany, attendanceStatus. SEM telefone
+GET    /v1/jobs/reach-count         [empresa] ?cityId=&role=&reach=&reachRadiusKm=&startsAt=
+                                    → { count }  o "34 garçons serão avisados" do §16.2.
+                                    MESMA query do disparo do push. `startsAt` opcional: sem ele
+                                    a disponibilidade não filtra e o número é um TETO
 GET    /v1/applications/:id/contact [empresa] → telefone DO TRABALHADOR. Grava contactedAt
 POST   /v1/jobs/:id/attendance      [empresa] { applicationId, status }
 GET    /v1/companies/me/attendance/pending  [empresa] fila de marcação, já sem os not_selected
+                                    → { applicationId, shortCode, job, worker } — SEM telefone
 POST   /v1/attendance/:id/dispute   [trabalhador]
+
+GET    /v1/companies/me/jobs        [empresa] as vagas dela em QUALQUER estado (aberta, fechada,
+                                    preenchida, vencida). Não é /v1/jobs filtrado: aquela só
+                                    devolve aberta e não vencida
+GET    /v1/companies/me/applicants  [empresa] candidaturas `applied` de todas as vagas dela,
+                                    mais recentes antes. SEM telefone
 
 POST   /v1/workers                  cadastro (multi-etapa, PATCH parcial)
 PATCH  /v1/workers/me
@@ -468,6 +500,29 @@ POST   /v1/reports
 POST   /v1/webhooks/whatsapp
 POST   /v1/webhooks/asaas
 ```
+
+### Ainda NÃO implementadas
+
+Estas a camada de acesso já chama e a API ainda não serve. Enquanto não existirem, as funções
+correspondentes de `apps/web/src/lib/api/` devolvem `not_implemented` em modo `live` — nenhuma
+inventa dado, e nenhuma monta no cliente o que é conta do servidor.
+
+```
+GET    /v1/jobs/for-me              [trabalhador] o roteamento do §16.2 aplicado à LISTAGEM:
+                                    só as funções e as cidades que ele assinou. /v1/jobs é
+                                    público e não olha o token
+GET    /v1/jobs/neighborhoods       bairros COM vaga aberta agora — o filtro só oferece o que
+                                    leva a resultado. Derivar da página 1 esconderia bairro
+GET    /v1/me/attendance            [trabalhador] o próprio histórico, sem os expirados (12 meses)
+POST   /v1/applications/:id/withdraw [trabalhador] retirar candidatura. Retirar não gera falta
+POST   /v1/workers/me/deactivate    [trabalhador] só o próprio dono desativa (regra 3). NÃO é
+                                    campo de PATCH: desativar é ato, não edição de perfil
+POST   /v1/workers/quick            cadastro reduzido do muro do "Quero essa vaga" — sem CPF,
+                                    que `workerCreateSchema` exige hoje
+```
+
+`POST /v1/workers` existe, mas só aceita o cadastro INTEIRO (`.strict()`), enquanto a tela grava
+etapa a etapa para queda de conexão não zerar o esforço (§16.1). Falta a rota aceitar o parcial.
 
 **Não existe rota que entregue ao trabalhador o telefone da empresa.** O único contato que a
 plataforma revela é o do trabalhador, para a empresa dona da vaga.
@@ -820,6 +875,22 @@ Código: A7K2
 ```
 
 **O clique é o ato de escolher.** `contactedAt` preenchido = a empresa chamou.
+
+**O nome completo sai pelo mesmo portão, e no mesmo instante.** Antes do clique, a empresa vê
+"João S."; `GET /v1/applications/:id/contact` devolve `{ phone, fullName, contactedAt }` — as
+duas coisas de uma vez, porque é a mesma decisão. Vale para as três telas da empresa (lista de
+candidatos, detalhe do candidato, fila de presença), **sem exceção por tela**: quem faz o corte
+é `worker-profiles.ts`, num lugar só, e a tela nunca escolhe se mostra ou não.
+
+Sem esse portão, uma assinatura mensal vira colheita: paga-se um mês, abrem-se as vagas e
+exporta-se nome completo de toda a base da cidade sem chamar ninguém. Com ele, cada nome custa
+um `contactedAt` — registro auditável de que a escolha aconteceu. E para ESCOLHER a empresa não
+precisa do sobrenome: ela decide por função, distância, disponibilidade e histórico.
+
+Enquanto `fullName` é `null`, a tela mostra primeiro nome e inicial mais uma linha discreta —
+*"o nome completo aparece quando você chamar no WhatsApp"* — porque campo vazio sem explicação
+a empresa lê como bug. Depois do contato, o nome completo entra na lista com o valor que veio
+na própria resposta, sem recarregar nada.
 
 **Teto de candidaturas:** `vacancies * 3`. Atingido, exibe "candidatos suficientes".
 

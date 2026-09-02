@@ -7,9 +7,11 @@ import { registerSession } from "./auth/session.js";
 import { failure } from "./http.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerCityRoutes } from "./routes/cities.js";
+import { registerCompanyRoutes } from "./routes/companies.js";
 import { registerApplicationRoutes } from "./routes/applications.js";
 import { registerAttendanceRoutes } from "./routes/attendance.js";
 import { registerJobRoutes } from "./routes/jobs.js";
+import { registerWorkerRoutes } from "./routes/workers.js";
 import { registerWhatsappWebhook } from "./routes/whatsapp.js";
 import { isDatabaseReachable } from "./db.js";
 import { env, isProduction } from "./env.js";
@@ -33,6 +35,16 @@ const REDACTED_PATHS = [
   "req.body.cpf",
   "req.body.phone",
   "req.body.code",
+  // Inscrição de push: `keys.p256dh` e `keys.auth` são CREDENCIAL — quem as
+  // tem manda notificação para aquele aparelho. A rota não registra o corpo,
+  // mas um erro de validação carrega o input junto do `err`, e é por esse
+  // caminho que elas vazariam sem ninguém ter escrito um `log(body)`.
+  "keys",
+  "*.keys",
+  "req.body.keys",
+  "endpoint",
+  "*.endpoint",
+  "req.body.endpoint",
 ];
 
 /** Um código estável por família de status — o cliente liga o erro à tela. */
@@ -50,11 +62,19 @@ const CODE_BY_STATUS: Record<number, string> = {
  * um teste subir o app inteiro sem abrir socket nenhum — quem escuta é o
  * index.ts.
  */
-export function buildServer(): FastifyInstance {
+export function buildServer(
+  /**
+   * Destino alternativo do log. Só existe para o teste que prova que as
+   * chaves de push nunca aparecem em lugar nenhum do log — a garantia não
+   * vale nada se ninguém puder LER o que foi escrito.
+   */
+  logDestination?: NodeJS.WritableStream,
+): FastifyInstance {
   const app = Fastify({
     logger: {
       level: isProduction ? "info" : "debug",
       redact: { paths: REDACTED_PATHS, censor: "[oculto]" },
+      ...(logDestination ? { stream: logDestination } : {}),
     },
     // O front e a API ficam atrás do mesmo nginx: sem isto o IP de todo mundo
     // é o do proxy, e rate limit por IP (§21) viraria rate limit global.
@@ -167,6 +187,8 @@ export function buildServer(): FastifyInstance {
   registerJobRoutes(app);
   registerApplicationRoutes(app);
   registerAttendanceRoutes(app);
+  registerWorkerRoutes(app);
+  registerCompanyRoutes(app);
   registerWhatsappWebhook(app);
 
   return app;

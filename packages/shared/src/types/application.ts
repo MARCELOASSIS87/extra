@@ -1,4 +1,7 @@
-import type { WorkerPublicProfile } from "./worker";
+import type {
+  WorkerApplicantProfile,
+  WorkerPublicProfile,
+} from "./worker";
 import type { PublicJobPost } from "./job";
 import type { AttendanceStatus } from "./attendance";
 
@@ -37,6 +40,43 @@ export interface JobApplicant {
 }
 
 /**
+ * A tela "candidatos da vaga" (§16.5): a vaga mais os candidatos dela, cada um
+ * com o que a empresa precisa para escolher — perfil, distância, quantas vezes
+ * ELA já registrou presença dessa pessoa, e o que ela já marcou nesta vaga
+ * (para a tela não oferecer marcar duas vezes).
+ *
+ * SEM telefone, e é o ponto: uma vaga de seis aceita dezoito candidaturas, e
+ * uma lista com dezoito números é uma lista telefônica que basta abrir o
+ * DevTools para copiar — não importa que a tela não os desenhe. Quem quer
+ * falar pede um por vez em `GET /v1/applications/:id/contact` (regra 8).
+ */
+export interface JobCandidate {
+  application: Application;
+  worker: WorkerApplicantProfile;
+  /** Entre os centros dos municípios; `null` acima de 100 km. */
+  distanceKm: number | null;
+  /** Presenças que ESTA empresa já registrou para ele. */
+  presentWithCompany: number;
+  /** O que esta empresa já marcou NESTA vaga, ou `null` se ainda não marcou. */
+  attendanceStatus: AttendanceStatus | null;
+}
+
+export interface JobCandidates {
+  job: PublicJobPost;
+  candidates: JobCandidate[];
+}
+
+/**
+ * Uma candidatura nova no painel da empresa: a fila de "candidatos novos",
+ * de TODAS as vagas dela. Sem telefone, pela mesma razão de `JobCandidate`.
+ */
+export interface NewApplicant {
+  application: Application;
+  job: PublicJobPost;
+  worker: WorkerPublicProfile;
+}
+
+/**
  * A resposta da única rota que revela um telefone. `contactedAt` volta junto
  * porque o clique É o ato de escolher (§16.5): quem chamou fica registrado, e
  * a data da primeira vez nunca é reescrita.
@@ -44,6 +84,12 @@ export interface JobApplicant {
 export interface ApplicationContact {
   applicationId: string;
   phone: string;
+  /**
+   * O nome completo vem JUNTO com o telefone, porque é a mesma decisão: pedir
+   * o contato é o ato de escolher, e é ele que abre os dois (§16.5, regra 8).
+   * A lista atualiza com este valor sem recarregar tudo.
+   */
+  fullName: string;
   contactedAt: string;
 }
 

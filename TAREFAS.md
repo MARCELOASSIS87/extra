@@ -289,7 +289,16 @@ Barra em dois passos, seletores lendo do store, navegação e home mudando por
 papel (visitante / trabalhador / empresa).
 
 ### L. Card de pendência com contexto ✅
-Nome, função, vaga, data e horário, bairro, shortCode e botão de WhatsApp.
+Nome, função, vaga, data e horário, bairro e shortCode.
+
+> O botão de WhatsApp saiu do card (tarefa 23e). A fila existe DEPOIS do bico,
+> e pedir o contato ali gravaria `contactedAt` sobre um fato passado — o campo
+> significa "escolhi essa pessoa" (§16.5), então marcá-lo em quem já
+> trabalhou, ou em quem nunca foi chamado, reescreveria o desfecho do §16.7
+> depois que ele aconteceu. O contato vive onde a escolha acontece: a lista de
+> candidatos da vaga e o detalhe do candidato. O nome no card continua vindo
+> do mesmo portão — completo para quem foi chamado, "João S." para quem não
+> foi —, e é a própria tela dizendo à empresa quem ela procurou.
 
 ### M. Valor sempre em real inteiro ✅
 `payAmount` inteiro no schema, input `step="1"`, exibição sem centavos.

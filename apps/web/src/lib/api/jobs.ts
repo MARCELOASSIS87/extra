@@ -27,6 +27,7 @@ import {
   store,
   withMock,
 } from "./mock";
+import { isLiveMode, request } from "./http";
 import { err, ok } from "./result";
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -70,6 +71,37 @@ const byHighlightThenRecent = (a: JobPost, b: JobPost) => {
 export async function listJobs(
   filters: JobFilters = {},
 ): Promise<ApiResult<Paginated<PublicJobPost>>> {
+  if (isLiveMode) {
+    const { role, cityIds, neighborhood, date } = filters;
+
+    // A rota recebe UMA cidade, por slug (`?city=`), enquanto o filtro da tela
+    // é multi-cidade. Enquanto a rota não aceitar várias, mandamos a primeira
+    // e o resto do recorte fica sem efeito — melhor uma lista mais larga que
+    // uma lista vazia, que faz a pessoa concluir que não há vaga na cidade.
+    // TODO: `?city=a,b,c` na rota, e este ramo manda `cityIds.join(",")`.
+    const city =
+      cityIds && cityIds.length > 0 ? citySlugOf(cityIds[0]) : undefined;
+
+    // O dia do calendário em São Paulo vira o par de instantes em UTC que a
+    // rota entende: ela não converte fuso (§17), quem converte é o front.
+    const from = date ? new Date(`${date}T00:00:00-03:00`).toISOString() : undefined;
+    const to = date ? new Date(`${date}T23:59:59-03:00`).toISOString() : undefined;
+
+    const result = await request<Paginated<PublicJobPost>>("/v1/jobs", {
+      query: { city, role, from, to, page: filters.page },
+    });
+
+    // `neighborhood` não existe na rota: filtra na página recebida, como a
+    // tela já esperava. Some quando a rota aceitar o parâmetro.
+    if (!result.ok || !neighborhood) return result;
+    return ok({
+      ...result.data,
+      items: result.data.items.filter(
+        (job) => job.neighborhood === neighborhood,
+      ),
+    });
+  }
+
   return withMock(() => {
     const { role, cityIds, neighborhood, date } = filters;
     const page = Math.max(1, filters.page ?? 1);
@@ -116,6 +148,15 @@ export async function listJobs(
 export async function listJobsForMe(
   pageSize = WORKER_HOME_PAGE_SIZE,
 ): Promise<ApiResult<Paginated<PublicJobPost>>> {
+  // TODO: sem rota. O roteamento do §16.2 — só as funções e as cidades que a
+  // pessoa assinou — depende das preferências dela, e `GET /v1/jobs` é rota
+  // pública que não olha o token. Montar isso no cliente exigiria uma chamada
+  // por cidade assinada, que é N+1 no 4G de quem está com dados contados.
+  // Espera `GET /v1/jobs/for-me`.
+  if (isLiveMode) {
+    return err("not_implemented", "Esta lista ainda não está disponível.");
+  }
+
   const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const worker = store.workers.find((item) => item.id === workerId);
@@ -149,6 +190,17 @@ export async function listJobsForMe(
 export async function getDefaultJobCityIds(): Promise<string[]> {
   if ((await getSessionRole()) !== "worker") return [DEFAULT_CITY_ID];
 
+  // Em live sai do próprio perfil, que a rota `/v1/workers/me` devolve. Sem
+  // ApiResult na assinatura (é leitura de sessão, §8.1): falha vira o padrão,
+  // e a busca abre na cidade âncora em vez de não abrir.
+  if (isLiveMode) {
+    const me = await request<{ notificationCityIds: string[] }>(
+      "/v1/workers/me",
+    );
+    const subscribed = me.ok ? me.data.notificationCityIds : [];
+    return subscribed.length > 0 ? subscribed : [DEFAULT_CITY_ID];
+  }
+
   const workerId = await getCurrentWorkerId();
   const worker = store.workers.find((item) => item.id === workerId);
   const subscribed = worker?.notificationCityIds ?? [];
@@ -175,8 +227,29 @@ export async function countReachedWorkers(input: {
   role: JobRole;
   reach: JobReach;
   reachRadiusKm: number | null;
+  /**
+   * Início da vaga. Opcional porque a tela pergunta o alcance ANTES de a data
+   * estar preenchida; sem ele o servidor conta sem o recorte de dia e período,
+   * e o número sai maior que o do push. Quem já tem a data manda.
+   */
+  startsAt?: string;
 }): Promise<number> {
-  const { cityId, role, reach, reachRadiusKm } = input;
+  const { cityId, role, reach, reachRadiusKm, startsAt } = input;
+
+  if (isLiveMode) {
+    const result = await request<{ count: number }>("/v1/jobs/reach-count", {
+      query: {
+        cityId,
+        role,
+        reach,
+        reachRadiusKm: reachRadiusKm ?? undefined,
+        startsAt,
+      },
+    });
+    // Sem ApiResult na assinatura: falha vira 0, e a tela mostra o mesmo que
+    // mostra enquanto o número não chegou, em vez de quebrar a publicação.
+    return result.ok ? result.data.count : 0;
+  }
 
   return store.workers.filter((worker) => {
     if (worker.status !== "complete") return false;
@@ -209,6 +282,15 @@ export async function getJobBySlug(
   citySlug: string,
   slug: string,
 ): Promise<ApiResult<PublicJobPost | null>> {
+  if (isLiveMode) {
+    const result = await request<PublicJobPost>(
+      `/v1/jobs/${encodeURIComponent(citySlug)}/${encodeURIComponent(slug)}`,
+    );
+    // Vaga inexistente é `null`, não erro: a página desenha "não encontrada".
+    if (!result.ok && result.error.code === "job_not_found") return ok(null);
+    return result;
+  }
+
   return withMock(() => {
     const job = store.jobPosts.find(
       (item) => item.slug === slug && citySlug === citySlugOf(item.cityId),
@@ -222,6 +304,12 @@ export async function getJobBySlug(
  * o que leva a algum resultado — bairro sem vaga vira beco sem saída.
  */
 export async function listOpenJobNeighborhoods(): Promise<ApiResult<string[]>> {
+  // TODO: sem rota. Os bairros COM vaga aberta agora, sobre a base inteira —
+  // derivar da primeira página de `/v1/jobs` daria um filtro que esconde
+  // bairro só porque a vaga dele caiu na página 2.
+  // Espera `GET /v1/jobs/neighborhoods`.
+  if (isLiveMode) return ok([]);
+
   return withMock(() => {
     const neighborhoods = new Set(
       store.jobPosts
@@ -239,6 +327,21 @@ export async function listOpenJobNeighborhoods(): Promise<ApiResult<string[]>> {
 export async function createJob(
   input: JobPostFormInput,
 ): Promise<ApiResult<PublicJobPost>> {
+  if (isLiveMode) {
+    // O mesmo schema do formulário, incluindo o filtro de linguagem
+    // discriminatória do §14.1 — que a rota reaplica, porque o cliente é
+    // contornável.
+    const parsed = jobPostSchema.safeParse(input);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return err("validation_error", issue.message, issue.path.join("."));
+    }
+    return request<PublicJobPost>("/v1/jobs", {
+      method: "POST",
+      body: parsed.data,
+    });
+  }
+
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const parsed = jobPostSchema.safeParse(input);
@@ -278,6 +381,12 @@ export async function createJob(
 
 /** PATCH /v1/jobs/:id/close — a empresa fecha a vaga quando já se acertou. */
 export async function closeJob(id: string): Promise<ApiResult<PublicJobPost>> {
+  if (isLiveMode) {
+    return request<PublicJobPost>(`/v1/jobs/${encodeURIComponent(id)}/close`, {
+      method: "PATCH",
+    });
+  }
+
   const companyId = await getCurrentCompanyId();
   return withMock(() => {
     const job = store.jobPosts.find((item) => item.id === id);

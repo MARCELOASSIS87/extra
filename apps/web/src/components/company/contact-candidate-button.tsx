@@ -47,6 +47,7 @@ export function ContactCandidateButton({
   job,
   shortCode,
   contactedAt,
+  onContacted,
   size = "sm",
   className,
 }: {
@@ -56,6 +57,12 @@ export function ContactCandidateButton({
   job: PublicJobPost;
   shortCode: string;
   contactedAt: string | null;
+  /**
+   * O nome completo que veio junto com o telefone (§16.5): pedir o contato
+   * abre os dois de uma vez. A lista atualiza com este valor em vez de
+   * recarregar tudo — a empresa está no celular, no ônibus, com dados contados.
+   */
+  onContacted?: (fullName: string) => void;
   size?: "sm" | "lg";
   className?: string;
 }) {
@@ -76,6 +83,7 @@ export function ContactCandidateButton({
     }
 
     setContacted(true);
+    onContacted?.(result.data.fullName);
     const message = buildMessage(job, workerFirstName, companyName, shortCode);
     window.open(
       `https://wa.me/${result.data.phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`,

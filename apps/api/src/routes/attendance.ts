@@ -13,6 +13,8 @@ import type {
 import { prisma } from "../db.js";
 import { failure, success } from "../http.js";
 import { requireCompany, requireWorker } from "../auth/session.js";
+import { loadWorkerProfiles } from "../worker-profiles.js";
+import { jobInclude, toPublicJobPost } from "./jobs.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -315,6 +317,14 @@ export function registerAttendanceRoutes(app: FastifyInstance): void {
       const page = Math.max(1, Number(request.query.page) || 1);
       const now = new Date();
 
+      // NOT a duplicate of effectiveAttendanceStatus, and do not delete either
+      // one. This cutoff is a BOUND, derived from the same constant, so the
+      // query is not unbounded and take/skip can stay in the database. The
+      // function is the RULE: it decides what counts as still pending. They
+      // agree today on purpose, and what keeps them agreeing is the boundary
+      // test at one minute inside the window — drop that guard and a future
+      // rule change silently stops matching what the query is willing to read.
+      //
       // O instante em que uma vaga que terminou passa a ser `not_selected`
       // sozinha. Espelha a soma da função compartilhada — `setUTCDate`, e não
       // `now - 7 * dia`, para os dois cortes coincidirem na borda.
@@ -336,77 +346,58 @@ export function registerAttendanceRoutes(app: FastifyInstance): void {
         select: {
           id: true,
           shortCode: true,
+          workerId: true,
           attendance: { select: { status: true, markedAt: true } },
-          worker: { select: { id: true, firstName: true, lastName: true } },
-          jobPost: {
-            select: {
-              id: true,
-              title: true,
-              role: true,
-              neighborhood: true,
-              startsAt: true,
-              endsAt: true,
-            },
-          },
+          // A vaga inteira: a fila mostra o mesmo card de candidato das outras
+          // telas da empresa, e ele precisa do endereço e do valor.
+          jobPost: { include: jobInclude },
         },
         skip: (page - 1) * PENDING_PAGE_SIZE,
         take: PENDING_PAGE_SIZE,
       });
 
       const nowIso = now.toISOString();
-      const items: AttendancePendingItem[] = rows
-        .filter(
-          (row) =>
-            effectiveAttendanceStatus(
-              {
-                status: row.attendance?.status ?? "pending",
-                markedAt: row.attendance?.markedAt?.toISOString() ?? null,
-              },
-              row.jobPost.endsAt.toISOString(),
-              nowIso,
-            ) === "pending",
-        )
-        .flatMap((row) => {
-          if (!row.worker) return [];
-          return [
+      const stillPending = rows.filter(
+        (row) =>
+          effectiveAttendanceStatus(
             {
-              applicationId: row.id,
-              shortCode: row.shortCode.trim(),
-              workerId: row.worker.id,
-              workerFirstName: row.worker.firstName,
-              // A inicial do SOBRENOME, mesma regra da view pública: o campo
-              // guarda o resto inteiro do nome, e a última palavra é o
-              // sobrenome de verdade.
-              workerLastNameInitial: lastNameInitial(row.worker.lastName),
-              jobPostId: row.jobPost.id,
-              jobTitle: row.jobPost.title,
-              jobRole: row.jobPost.role,
-              jobNeighborhood: row.jobPost.neighborhood,
-              jobStartsAt: row.jobPost.startsAt.toISOString(),
-              jobEndsAt: row.jobPost.endsAt.toISOString(),
+              status: row.attendance?.status ?? "pending",
+              markedAt: row.attendance?.markedAt?.toISOString() ?? null,
             },
-          ];
-        });
+            row.jobPost.endsAt.toISOString(),
+            nowIso,
+          ) === "pending",
+      );
+
+      // O perfil sai da mesma função das outras telas da empresa — um lugar só
+      // onde esse recorte é feito, e um lugar só que pode deixar de vazar
+      // telefone (regra 8).
+      const { applicantById } = await loadWorkerProfiles(
+        stillPending
+          .map((row) => row.workerId)
+          .filter((id): id is string => id !== null),
+        undefined,
+        companyId,
+      );
+
+      const items: AttendancePendingItem[] = stillPending.flatMap((row) => {
+        const worker = row.workerId
+          ? applicantById.get(row.workerId)
+          : undefined;
+        // Sem perfil na view: conta desativada. Some da fila em vez de
+        // aparecer pela metade.
+        if (!worker) return [];
+        return [
+          {
+            applicationId: row.id,
+            shortCode: row.shortCode.trim(),
+            job: toPublicJobPost(row.jobPost),
+            worker,
+          },
+        ];
+      });
 
       return reply.send(success(items));
     },
   );
-}
-
-/**
- * Primeiro caractere da ÚLTIMA palavra, descartando sufixo de geração — a
- * mesma regra da view `worker_public_profiles`. Duplicada aqui porque a fila
- * não passa pela view: é leitura da empresa dona da vaga, e a view existe para
- * o perfil público. Se uma terceira leitura precisar disto, vira função no
- * shared.
- */
-const GENERATION_SUFFIX =
-  /(^|\s+)(jr|j[uú]nior|neto|filho|sobrinho|segundo)\.?\s*$/i;
-
-function lastNameInitial(lastName: string): string {
-  let base = lastName.trim();
-  while (GENERATION_SUFFIX.test(base))
-    base = base.replace(GENERATION_SUFFIX, "");
-  const word = base.split(/\s+/).at(-1) ?? "";
-  return word ? `${word.charAt(0)}.` : "";
 }

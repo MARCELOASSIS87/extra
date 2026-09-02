@@ -524,15 +524,11 @@ async function testPendingQueue(): Promise<void> {
     }
   };
   walk(response.json().data);
-  for (const key of [
-    "phone",
-    "workerPhone",
-    "telefone",
-    "cpf",
-    "birthDate",
-    "fullName",
-    "lastName",
-  ]) {
+  // `fullName` NÃO entra na lista: a fila serve o mesmo card de candidato das
+  // outras telas da empresa (`WorkerApplicantProfile`, §16.5), e é a mesma
+  // empresa que já vê aquele nome na lista de candidatos da vaga. O que a
+  // regra 8 proíbe aqui é telefone — e CPF e nascimento, que nunca saem.
+  for (const key of ["phone", "workerPhone", "telefone", "cpf", "birthDate"]) {
     assert.ok(!keys.has(key), `a chave "${key}" não pode existir na fila`);
   }
   assert.doesNotMatch(response.body, /\+55/, "telefone no corpo da resposta");
@@ -544,11 +540,11 @@ async function testPendingQueue(): Promise<void> {
       (entry: { applicationId: string }) =>
         entry.applicationId === myApplication,
     );
-  assert.equal(item.workerFirstName, `Trabalhador${mine.seq}`);
-  assert.equal(item.workerLastNameInitial, "T.");
-  assert.equal(item.jobTitle, "Garçom para teste");
-  assert.equal(item.jobRole, "garcom");
-  assert.equal(item.jobNeighborhood, "Centro");
+  assert.equal(item.worker.firstName, `Trabalhador${mine.seq}`);
+  assert.equal(item.worker.lastNameInitial, "T.");
+  assert.equal(item.job.title, "Garçom para teste");
+  assert.equal(item.job.role, "garcom");
+  assert.equal(item.job.neighborhood, "Centro");
   assert.ok(item.shortCode.length === 4);
 }
 

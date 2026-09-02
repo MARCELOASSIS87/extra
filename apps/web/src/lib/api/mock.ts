@@ -231,10 +231,21 @@ export function toPublicProfile(worker: Worker): WorkerPublicProfile {
  * servidor, e o mock imita para nenhuma tela se acostumar a receber dado
  * sensível.
  */
-export function toApplicantProfile(worker: Worker): WorkerApplicantProfile {
+export function toApplicantProfile(
+  worker: Worker,
+  /**
+   * `contactedAt` da candidatura daquela empresa. Argumento obrigatório de
+   * propósito: o nome completo passa pelo MESMO portão do telefone (§16.5,
+   * regra 8), e quem chama tem que dizer se a escolha já aconteceu — não dá
+   * para esquecer o corte por omissão.
+   */
+  contactedAt: string | null,
+): WorkerApplicantProfile {
   return {
     ...toPublicProfile(worker),
-    fullName: worker.fullName,
+    // Nulo até a empresa chamar. `firstName` e `lastNameInitial` continuam
+    // vindo do perfil público, então a tela nunca fica sem nome nenhum.
+    fullName: contactedAt ? worker.fullName : null,
     availability: worker.availability,
   };
 }

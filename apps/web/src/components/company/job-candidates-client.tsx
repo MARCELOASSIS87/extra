@@ -10,6 +10,10 @@ import { listJobCandidates } from "@/lib/api/applications";
 import { getMyCompany } from "@/lib/api/companies";
 import { ContactCandidateButton } from "@/components/company/contact-candidate-button";
 import { WorkerAttendanceSummary } from "@/components/company/worker-attendance-summary";
+import {
+  candidateDisplayName,
+  candidateNameHint,
+} from "@/lib/candidate-name";
 
 type Candidates = Awaited<ReturnType<typeof listJobCandidates>>;
 
@@ -24,6 +28,13 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
     result: Candidates;
     company: ApiResult<Company | null>;
   } | null>(null);
+
+  /**
+   * Nomes completos que chegaram no retorno do contato (§16.5). O pedido já
+   * traz o nome junto com o telefone, então a linha atualiza na hora — sem
+   * recarregar a lista inteira no 4G de quem está no ônibus.
+   */
+  const [revealed, setRevealed] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let active = true;
@@ -102,12 +113,18 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <p className="min-w-0 truncate font-medium group-hover:underline">
-                      {worker.fullName}
+                      {revealed[application.id] ??
+                        candidateDisplayName(worker)}
                     </p>
                     <span className="bg-secondary text-secondary-foreground shrink-0 rounded-md px-2 py-1 text-xs font-medium">
                       Código {application.shortCode}
                     </span>
                   </div>
+                  {!revealed[application.id] && candidateNameHint(worker) && (
+                    <p className="text-muted-foreground mt-0.5 text-xs">
+                      {candidateNameHint(worker)}
+                    </p>
+                  )}
                   <WorkerAttendanceSummary worker={worker} />
                   <p className="text-muted-foreground mt-1 text-sm">
                     {worker.neighborhood}, {worker.cityName}
@@ -126,6 +143,12 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
                     <ContactCandidateButton
                       applicationId={application.id}
                       workerFirstName={worker.firstName}
+                      onContacted={(fullName) =>
+                        setRevealed((current) => ({
+                          ...current,
+                          [application.id]: fullName,
+                        }))
+                      }
                       companyName={companyName}
                       job={result.data.job}
                       shortCode={application.shortCode}

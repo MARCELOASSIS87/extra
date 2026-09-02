@@ -284,18 +284,20 @@ async function testApplicantsPayloadHasNoSecrets(): Promise<void> {
   });
 
   assert.equal(response.statusCode, 200);
-  const applicants = response.json().data;
-  assert.equal(applicants.length, 1);
-  assert.equal(applicants[0].worker.id, worker.id);
+  const body = response.json().data;
+  assert.equal(body.job.id, jobId);
+  assert.equal(body.candidates.length, 1);
+  assert.equal(body.candidates[0].worker.id, worker.id);
 
+  // `fullName` NÃO entra na lista: a empresa dona da vaga vê o nome de quem se
+  // candidatou a ela (§16.5, `WorkerApplicantProfile`). O que não pode sair
+  // daqui é telefone, CPF e data de nascimento.
   const forbidden = [
     "cpf",
     "birthDate",
     "birth_date",
     "phone",
     "telefone",
-    "fullName",
-    "lastName",
     "accountId",
   ];
   const keys = new Set<string>();
@@ -308,7 +310,7 @@ async function testApplicantsPayloadHasNoSecrets(): Promise<void> {
       }
     }
   };
-  walk(applicants);
+  walk(body);
 
   for (const key of forbidden) {
     assert.ok(!keys.has(key), `a chave "${key}" não pode existir no payload`);

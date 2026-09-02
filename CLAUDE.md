@@ -235,6 +235,7 @@ chat interno · estrelas, notas ou comentários · processamento do pagamento do
 
 ## Antes de considerar uma tarefa concluída
 
+- [ ] `pnpm -r test` na RAIZ passou — nunca só o pacote que você tocou
 - [ ] Nenhum tipo de domínio declarado fora de `packages/shared`
 - [ ] Nenhum import direto de `src/mocks/` em componente
 - [ ] Nenhum telefone em payload ou página pública

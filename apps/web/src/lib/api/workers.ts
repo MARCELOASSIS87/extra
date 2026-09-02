@@ -12,6 +12,7 @@ import {
 } from "@extra/shared/schemas/worker";
 import { DEFAULT_CITY_ID } from "./cities";
 import { getCurrentWorkerId, nowIso, randomId, store, withMock } from "./mock";
+import { isLiveMode, request } from "./http";
 import { err, ok } from "./result";
 
 /**
@@ -24,6 +25,14 @@ import { err, ok } from "./result";
 const MOCK_ACCEPTANCE_IP = "0.0.0.0";
 
 export async function getMyWorkerProfile(): Promise<ApiResult<Worker | null>> {
+  if (isLiveMode) {
+    const result = await request<Worker>("/v1/workers/me");
+    // Conta sem cadastro de trabalhador é o estado "ainda não se cadastrou",
+    // não um erro para a tela desenhar.
+    if (!result.ok && result.error.code === "forbidden") return ok(null);
+    return result;
+  }
+
   const workerId = await getCurrentWorkerId();
   return withMock(() =>
     ok(store.workers.find((worker) => worker.id === workerId) ?? null),
@@ -42,6 +51,18 @@ export async function getMyWorkerProfile(): Promise<ApiResult<Worker | null>> {
 export async function createWorker(
   input: WorkerStep1Identity & WorkerTermsAcceptance,
 ): Promise<ApiResult<Worker>> {
+  // TODO: sem rota equivalente. `POST /v1/workers` exige o cadastro INTEIRO
+  // (identidade + perfil + cidade + preferências de aviso, `workerCreateSchema`
+  // é `.strict()`), enquanto esta função grava só a etapa 1 — o cadastro salva
+  // etapa a etapa para queda de conexão não zerar o esforço (§16.1). Mandar a
+  // etapa 1 sozinha para lá dá 400. Espera uma rota que aceite o parcial.
+  if (isLiveMode) {
+    return err(
+      "not_implemented",
+      "Este cadastro ainda não está disponível.",
+    );
+  }
+
   return withMock(() => {
     const parsed = workerStep1IdentitySchema
       .extend(workerTermsAcceptanceSchema.shape)
@@ -101,6 +122,15 @@ export async function createWorker(
 export async function createWorkerQuick(
   input: WorkerQuickRegistrationInput,
 ): Promise<ApiResult<Worker>> {
+  // TODO: sem rota. Mesma razão de `createWorker`, mais uma: o cadastro
+  // reduzido não tem CPF, e `workerCreateSchema` o exige.
+  if (isLiveMode) {
+    return err(
+      "not_implemented",
+      "Este cadastro ainda não está disponível.",
+    );
+  }
+
   return withMock(() => {
     const parsed = workerQuickRegistrationSchema.safeParse(input);
     if (!parsed.success) {
@@ -159,6 +189,18 @@ export async function createWorkerQuick(
 export async function updateMyWorkerProfile(
   input: WorkerProfileUpdate,
 ): Promise<ApiResult<Worker>> {
+  if (isLiveMode) {
+    const parsed = workerProfileUpdateSchema.safeParse(input);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return err("validation_error", issue.message, issue.path.join("."));
+    }
+    return request<Worker>("/v1/workers/me", {
+      method: "PATCH",
+      body: parsed.data,
+    });
+  }
+
   const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const parsed = workerProfileUpdateSchema.safeParse(input);
@@ -224,6 +266,16 @@ export async function updateMyWorkerProfile(
 
 /** O próprio usuário desativa a conta. Não existe desativação por terceiro. */
 export async function deactivateMyAccount(): Promise<ApiResult<Worker>> {
+  // TODO: sem rota. `PATCH /v1/workers/me` não aceita `status` — e não deve
+  // aceitar: desativar é ato do próprio dono, não um campo de perfil.
+  // Espera `POST /v1/workers/me/deactivate`.
+  if (isLiveMode) {
+    return err(
+      "not_implemented",
+      "A desativação ainda não está disponível.",
+    );
+  }
+
   const workerId = await getCurrentWorkerId();
   return withMock(() => {
     const current = store.workers.find((worker) => worker.id === workerId);

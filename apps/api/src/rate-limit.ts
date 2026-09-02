@@ -15,35 +15,46 @@ import { failure } from "./http.js";
 const WINDOW_MS = 60_000;
 const MAX_PER_WINDOW = 120;
 
+/**
+ * Denúncia tem teto próprio, e bem mais baixo. É porta de abuso nos dois
+ * sentidos: enxurrada para derrubar um anúncio legítimo, ou para afogar a
+ * fila de moderação até ninguém mais olhar. Quem denuncia de verdade denuncia
+ * uma vez.
+ */
+const MAX_REPORTS_PER_WINDOW = 5;
+
 /** Acima disto, poda os baldes vencidos: mapa sem poda é vazamento. */
 const MAX_TRACKED_IPS = 20_000;
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
-export async function publicReadRateLimit(
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<FastifyReply | undefined> {
+/**
+ * Um balde por chave. A chave carrega o nome do limite, então leitura pública
+ * e denúncia contam separado — senão navegar gastaria o orçamento de denunciar.
+ */
+function consume(ip: string, name: string, max: number): number | null {
   const now = Date.now();
 
   if (buckets.size > MAX_TRACKED_IPS) {
-    for (const [ip, bucket] of buckets) {
-      if (bucket.resetAt <= now) buckets.delete(ip);
+    for (const [key, bucket] of buckets) {
+      if (bucket.resetAt <= now) buckets.delete(key);
     }
   }
 
-  const bucket = buckets.get(request.ip);
+  const key = `${name}:${ip}`;
+  const bucket = buckets.get(key);
   if (!bucket || bucket.resetAt <= now) {
-    buckets.set(request.ip, { count: 1, resetAt: now + WINDOW_MS });
-    return undefined;
+    buckets.set(key, { count: 1, resetAt: now + WINDOW_MS });
+    return null;
   }
 
   bucket.count += 1;
-  if (bucket.count <= MAX_PER_WINDOW) return undefined;
+  if (bucket.count <= max) return null;
+  return Math.ceil((bucket.resetAt - now) / 1000);
+}
 
-  const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
-  request.log.info({ count: bucket.count }, "limite de leitura pública");
-  return reply
+const tooMany = (reply: FastifyReply, retryAfter: number): FastifyReply =>
+  reply
     .status(429)
     .header("retry-after", String(retryAfter))
     .send(
@@ -52,4 +63,26 @@ export async function publicReadRateLimit(
         "Muitas requisições. Espere alguns segundos e tente de novo.",
       ),
     );
+
+export async function publicReadRateLimit(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<FastifyReply | undefined> {
+  const retryAfter = consume(request.ip, "read", MAX_PER_WINDOW);
+  if (retryAfter === null) return undefined;
+
+  request.log.info("limite de leitura pública");
+  return tooMany(reply, retryAfter);
+}
+
+/** Teto apertado do §14.4 — ver `MAX_REPORTS_PER_WINDOW`. */
+export async function reportRateLimit(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<FastifyReply | undefined> {
+  const retryAfter = consume(request.ip, "report", MAX_REPORTS_PER_WINDOW);
+  if (retryAfter === null) return undefined;
+
+  request.log.warn("limite de denúncias atingido");
+  return tooMany(reply, retryAfter);
 }

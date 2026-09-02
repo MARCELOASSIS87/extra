@@ -1,4 +1,5 @@
-import type { JobRole } from "./job";
+import type { PublicJobPost } from "./job";
+import type { WorkerApplicantProfile } from "./worker";
 
 export interface AttendanceSummary {
   present: number;
@@ -74,13 +75,11 @@ export interface AttendanceRecord {
 export interface AttendancePendingItem {
   applicationId: string;
   shortCode: string;
-  workerId: string;
-  workerFirstName: string;
-  workerLastNameInitial: string;
-  jobPostId: string;
-  jobTitle: string;
-  jobRole: JobRole;
-  jobNeighborhood: string;
-  jobStartsAt: string;
-  jobEndsAt: string;
+  /**
+   * A vaga inteira e o perfil de candidato, como nas outras telas da empresa.
+   * A fila mostra o mesmo card de candidato que a lista da vaga — servir aqui
+   * uma versão achatada obrigaria a tela a ter dois desenhos do mesmo card.
+   */
+  job: PublicJobPost;
+  worker: WorkerApplicantProfile;
 }

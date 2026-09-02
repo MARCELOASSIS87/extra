@@ -15,6 +15,10 @@ import { getMyCompany } from "@/lib/api/companies";
 import { AttendanceMarkButtons } from "@/components/company/attendance-mark-buttons";
 import { ContactCandidateButton } from "@/components/company/contact-candidate-button";
 import { formatAttendanceSummary, formatJobDate } from "@/lib/format";
+import {
+  candidateDisplayName,
+  candidateNameHint,
+} from "@/lib/candidate-name";
 
 type Candidates = Awaited<ReturnType<typeof listJobCandidates>>;
 
@@ -42,6 +46,9 @@ export function CandidateProfileClient({
     company: ApiResult<Company | null>;
     now: string;
   } | null>(null);
+
+  /** O nome completo que veio no retorno do contato (§16.5). */
+  const [revealedName, setRevealedName] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -117,8 +124,13 @@ export function CandidateProfileClient({
       )}
 
       <h1 className="mt-6 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-        {worker.fullName}
+        {revealedName ?? candidateDisplayName(worker)}
       </h1>
+      {!revealedName && candidateNameHint(worker) && (
+        <p className="text-muted-foreground mt-1 text-xs">
+          {candidateNameHint(worker)}
+        </p>
+      )}
 
       <p className="mt-3 flex flex-wrap gap-1.5">
         {worker.roles.map((role) => (
@@ -188,6 +200,7 @@ export function CandidateProfileClient({
         <ContactCandidateButton
           applicationId={application.id}
           workerFirstName={worker.firstName}
+          onContacted={setRevealedName}
           companyName={companyName}
           job={job}
           shortCode={application.shortCode}
