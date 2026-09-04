@@ -272,6 +272,14 @@ com base atualizada, coisa que um endereço digitado uma vez não é.
 ser telefone inventado. Regra geral: **campo declarado pela própria pessoa nunca vira garantia,
 só informação.**
 
+**Desativar a conta não apaga candidatura já feita.** A view `worker_public_profiles` filtra
+`self_deactivated`, e continua filtrando: quem desativa some da BUSCA e para de receber aviso.
+Mas a candidatura que a empresa já tem em mãos permanece na lista dela, marcada com
+`isDeactivated` — com o `shortCode` e o nome público que ela já via. Sumir dali levaria junto o
+código que casa a conversa do WhatsApp, inclusive de alguém que a empresa já chamou; o
+tratamento é da ROTA, não da view. Desativar é ato da pessoa, nunca punição: a interface escreve
+"conta desativada", nunca "suspensa" ou "bloqueada".
+
 **Termo de uso é dado de primeira classe.** Versão, data e IP. Termo novo = nova versão = novo
 aceite.
 
@@ -484,7 +492,24 @@ GET    /v1/companies/me/jobs        [empresa] as vagas dela em QUALQUER estado (
 GET    /v1/companies/me/applicants  [empresa] candidaturas `applied` de todas as vagas dela,
                                     mais recentes antes. SEM telefone
 
-POST   /v1/workers                  cadastro (multi-etapa, PATCH parcial)
+GET    /v1/me/jobs                  [trabalhador] o feed: vagas abertas que o ALCANÇAM —
+                                    cidade assinada ou dentro do raio, casando função e
+                                    disponibilidade. MESMA regra do push, invertida
+                                    (`routing.ts`), com teste de simetria travando o par
+GET    /v1/me/attendance            [trabalhador] o histórico dele. Inclui `not_selected`
+                                    (a tela é dele; silêncio é pior que informação), com copy
+                                    NEUTRA — "não seguiu", nunca "você não foi escolhido"
+GET    /v1/jobs/neighborhoods       ?city=  bairros COM vaga aberta agora, para o filtro
+
+POST   /v1/workers                  cadastro MÍNIMO: nome, CPF, nascimento, cidade, bairro e
+                                    o aceite. Nasce `incomplete`. O resto entra por PATCH —
+                                    o §16.1 promete progresso salvo a cada etapa
+POST   /v1/applications/:id/withdraw [trabalhador] sai da candidatura: `withdrawn` e
+                                    `applicationsCount` DECREMENTA na mesma transação.
+                                    409 depois de `startsAt` ou com presença já marcada
+POST   /v1/workers/me/deactivate    [trabalhador] desativa a PRÓPRIA conta (regra 3). Some da
+                                    busca e do aviso. NÃO é exclusão — §13.1 é a tarefa 25
+POST   /v1/workers/me/reactivate    [trabalhador] volta. Status recalculado, não guardado
 PATCH  /v1/workers/me
 PATCH  /v1/workers/me/notifications  { cityIds, nearbyRadiusKm }   1 a 5 cidades, raio 25|50|null
 GET    /v1/cities/:id/neighbors      ?radiusKm=   quantas e quais cidades o raio inclui
@@ -508,21 +533,9 @@ correspondentes de `apps/web/src/lib/api/` devolvem `not_implemented` em modo `l
 inventa dado, e nenhuma monta no cliente o que é conta do servidor.
 
 ```
-GET    /v1/jobs/for-me              [trabalhador] o roteamento do §16.2 aplicado à LISTAGEM:
-                                    só as funções e as cidades que ele assinou. /v1/jobs é
-                                    público e não olha o token
-GET    /v1/jobs/neighborhoods       bairros COM vaga aberta agora — o filtro só oferece o que
-                                    leva a resultado. Derivar da página 1 esconderia bairro
-GET    /v1/me/attendance            [trabalhador] o próprio histórico, sem os expirados (12 meses)
-POST   /v1/applications/:id/withdraw [trabalhador] retirar candidatura. Retirar não gera falta
-POST   /v1/workers/me/deactivate    [trabalhador] só o próprio dono desativa (regra 3). NÃO é
-                                    campo de PATCH: desativar é ato, não edição de perfil
 POST   /v1/workers/quick            cadastro reduzido do muro do "Quero essa vaga" — sem CPF,
-                                    que `workerCreateSchema` exige hoje
+                                    que a criação exige hoje
 ```
-
-`POST /v1/workers` existe, mas só aceita o cadastro INTEIRO (`.strict()`), enquanto a tela grava
-etapa a etapa para queda de conexão não zerar o esforço (§16.1). Falta a rota aceitar o parcial.
 
 **Não existe rota que entregue ao trabalhador o telefone da empresa.** O único contato que a
 plataforma revela é o do trabalhador, para a empresa dona da vaga.

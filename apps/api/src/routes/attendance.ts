@@ -20,6 +20,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** Validade do registro (§16.4). Igual à do histórico público. */
+const TWELVE_MONTHS_MS = 365 * DAY_MS;
+
 const notFound = (reply: FastifyReply, message: string): FastifyReply =>
   reply.status(404).send(failure("not_found", message));
 
@@ -384,8 +387,9 @@ export function registerAttendanceRoutes(app: FastifyInstance): void {
         const worker = row.workerId
           ? applicantById.get(row.workerId)
           : undefined;
-        // Sem perfil na view: conta desativada. Some da fila em vez de
-        // aparecer pela metade.
+        // Conta desativada continua na fila, marcada: a empresa precisa
+        // registrar como foi um bico que já aconteceu (§16.4). O que sobra
+        // aqui é candidatura anonimizada por exclusão de conta (§13.1).
         if (!worker) return [];
         return [
           {
@@ -398,6 +402,84 @@ export function registerAttendanceRoutes(app: FastifyInstance): void {
       });
 
       return reply.send(success(items));
+    },
+  );
+
+  /**
+   * O histórico do PRÓPRIO trabalhador (§16.7). Não é o histórico público: a
+   * tela é dele, e por isso mostra o que o perfil público esconde.
+   *
+   * Inclui `not_selected`, e é de propósito — silêncio é pior que informação.
+   * Quem se candidatou e nunca soube de nada fica recarregando a lista sem
+   * entender; ver "não seguiu" encerra a dúvida. O que NÃO pode é o texto
+   * julgar a pessoa: a copy vive em `MY_ATTENDANCE_LABELS`, no shared, e
+   * descreve a vaga ("não seguiu"), nunca a pessoa ("você não foi escolhido").
+   *
+   * Inclui também o que ainda está `pending` de verdade e o que já virou
+   * `not_selected` sozinho — a decisão é da função compartilhada, para a tela
+   * não comparar data nem concluir nada de um silêncio (§16.7).
+   *
+   * Registro com mais de 12 meses sai, igual ao público: o que não conta mais
+   * para ninguém não precisa continuar sendo mostrado como se contasse.
+   */
+  app.get(
+    "/v1/me/attendance",
+    { preHandler: requireWorker },
+    async (request, reply) => {
+      const workerId = request.workerId;
+      if (!workerId) {
+        return reply
+          .status(403)
+          .send(
+            failure("forbidden", "Esta área não está disponível nesta conta."),
+          );
+      }
+
+      // A posse entra no WHERE pela candidatura: `attendance_records` não
+      // guarda `worker_id`, e o registro de outra pessoa nem é lido.
+      const rows = await prisma.application.findMany({
+        where: { workerId, attendance: { isNot: null } },
+        orderBy: { jobPost: { endsAt: "desc" } },
+        select: {
+          workerId: true,
+          jobPostId: true,
+          jobPost: { select: { companyId: true, endsAt: true } },
+          attendance: true,
+        },
+      });
+
+      const now = new Date().toISOString();
+      const cutoff = new Date(Date.now() - TWELVE_MONTHS_MS).toISOString();
+
+      const body: AttendanceRecord[] = rows.flatMap((row) => {
+        const record = row.attendance;
+        if (!record) return [];
+
+        // Vencido sai: passados 12 meses o registro não conta mais para
+        // ninguém, nem no público nem aqui.
+        const markedAt = record.markedAt?.toISOString() ?? null;
+        if (markedAt !== null && markedAt < cutoff) return [];
+
+        return [
+          {
+            ...toRecord(record, {
+              workerId: row.workerId ?? "",
+              companyId: row.jobPost.companyId,
+              jobPostId: row.jobPostId,
+            }),
+            // O desfecho EFETIVO, já derivado: `not_selected` passados 7 dias
+            // do fim do trabalho, nunca falta. Quem decide é a função
+            // compartilhada, igual à tela da empresa.
+            status: effectiveAttendanceStatus(
+              { status: record.status, markedAt },
+              row.jobPost.endsAt.toISOString(),
+              now,
+            ),
+          },
+        ];
+      });
+
+      return reply.send(success(body));
     },
   );
 }

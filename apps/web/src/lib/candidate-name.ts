@@ -35,3 +35,20 @@ export function candidateNameHint(
     ? null
     : "o nome completo aparece quando você chamar no WhatsApp";
 }
+
+/**
+ * A marca de conta desativada, para as telas da empresa (§7.3).
+ *
+ * A pessoa desativou a PRÓPRIA conta — não é punição, não é suspensão e não é
+ * bloqueio. A copy diz o que aconteceu, no tom de um fato: "conta desativada",
+ * e nada de "suspensa", "bloqueada" ou "inativa por irregularidade".
+ * Conferido contra o vocabulário proibido.
+ *
+ * A candidatura continua valendo: o `shortCode` está lá, e a empresa que já
+ * chamou continua com a conversa. O que a linha explica é por que aquele
+ * perfil parou de atualizar.
+ */
+export const DEACTIVATED_LABEL = "Conta desativada";
+
+export const DEACTIVATED_HINT =
+  "Esta pessoa desativou a conta. A candidatura dela continua valendo.";

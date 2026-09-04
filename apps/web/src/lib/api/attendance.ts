@@ -169,11 +169,8 @@ export async function listAttendancePending(): Promise<
 export async function listMyAttendance(): Promise<
   ApiResult<AttendanceRecord[]>
 > {
-  // TODO: sem rota. O histórico do próprio trabalhador não tem endpoint —
-  // o que existe é a fila de pendências DA EMPRESA.
-  // Espera `GET /v1/me/attendance`.
   if (isLiveMode) {
-    return err("not_implemented", "O histórico ainda não está disponível.");
+    return request<AttendanceRecord[]>("/v1/me/attendance");
   }
 
   const workerId = await getCurrentWorkerId();

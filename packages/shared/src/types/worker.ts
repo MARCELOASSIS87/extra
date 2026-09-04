@@ -85,4 +85,18 @@ export interface WorkerApplicantProfile extends WorkerPublicProfile {
    */
   fullName: string | null;
   availability: Availability[];
+  /**
+   * A pessoa desativou a própria conta DEPOIS de se candidatar (§7.3).
+   *
+   * A candidatura não some da lista da empresa por causa disso: ela já
+   * aconteceu, a empresa pode já ter chamado, e um candidato que desaparece
+   * no meio do processo — levando junto o `shortCode` que casa a conversa do
+   * WhatsApp — é a plataforma apagando o combinado de alguém.
+   *
+   * A view `worker_public_profiles` continua filtrando `self_deactivated`,
+   * como deve: quem desativou some da BUSCA. Quem trata este caso é a rota,
+   * que preenche o que a empresa já tinha e marca a conta como desativada
+   * para a tela dizer por que aquele perfil parou de atualizar.
+   */
+  isDeactivated: boolean;
 }

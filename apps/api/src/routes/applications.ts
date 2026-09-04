@@ -68,6 +68,11 @@ const isCapViolation = (error: unknown): boolean =>
   error instanceof Error &&
   error.message.includes("job_posts_applications_within_cap");
 
+/** Recusas do withdraw. Classe e não string: o `catch` distingue sem parsear. */
+class AlreadyWithdrawn extends Error {}
+class AttendanceExists extends Error {}
+class JobStarted extends Error {}
+
 export function registerApplicationRoutes(app: FastifyInstance): void {
   /**
    * Candidatar-se (§8, §16.5). O trabalhador vem do TOKEN.
@@ -362,8 +367,10 @@ export function registerApplicationRoutes(app: FastifyInstance): void {
         const worker = application.workerId
           ? applicantById.get(application.workerId)
           : undefined;
-        // Sem perfil na view: conta desativada. Some da lista em vez de
-        // aparecer pela metade.
+        // Conta desativada NÃO cai aqui: o loader devolve o perfil com
+        // `isDeactivated`, e o item permanece na lista (§7.3). O que sobra é
+        // candidatura anonimizada por exclusão de conta (§13.1), que não tem
+        // mais worker nenhum para mostrar.
         if (!worker || !application.workerId) return [];
 
         return [
@@ -454,7 +461,126 @@ export function registerApplicationRoutes(app: FastifyInstance): void {
       return reply.send(success(body));
     },
   );
+
+  /**
+   * Sair da própria candidatura (§8). A vaga VOLTA A TER ESPAÇO: o `status` e
+   * o `applicationsCount` mudam na mesma transação, senão a vaga fica com uma
+   * cadeira ocupada por quem já saiu e o teto do §16.5 fecha cedo demais.
+   *
+   * A posse entra no WHERE — `{ id, workerId }` — na mesma consulta que lê:
+   * candidatura de outra pessoa não é encontrada, e responde 404 sem
+   * confirmar que o id existe.
+   *
+   * Duas recusas, e as duas protegem a EMPRESA de perder o combinado em cima
+   * da hora sem registro:
+   *
+   * - depois de `startsAt`, não dá mais para sair: o trabalho já começou, e
+   *   "saí antes" deixaria de ser verdade. Quem não foi tem a marcação de
+   *   presença como desfecho, que é o caminho do §16.4;
+   * - com presença já marcada, também não: a marcação é o fato registrado
+   *   pela empresa, e apagar a candidatura por baixo dela deixaria o registro
+   *   órfão de contexto.
+   *
+   * Retirar NÃO gera falta e não entra em histórico nenhum. É movimento
+   * neutro, igual a não ter se candidatado (regra 3).
+   */
+  app.post<{ Params: { id: string } }>(
+    "/v1/applications/:id/withdraw",
+    { preHandler: requireWorker },
+    async (request, reply) => {
+      const workerId = request.workerId;
+      if (!workerId) {
+        return reply
+          .status(403)
+          .send(
+            failure("forbidden", "Esta área não está disponível nesta conta."),
+          );
+      }
+      if (!UUID.test(request.params.id)) {
+        return notFound(reply, "Candidatura não encontrada.");
+      }
+
+      try {
+        const updated = await prisma.$transaction(async (tx) => {
+          // Posse no WHERE, junto com o que a decisão precisa.
+          const application = await tx.application.findFirst({
+            where: { id: request.params.id, workerId },
+            select: {
+              id: true,
+              status: true,
+              jobPostId: true,
+              attendance: { select: { id: true } },
+              jobPost: { select: { startsAt: true } },
+            },
+          });
+          if (!application) return null;
+
+          // Já saiu: idempotente, devolve o estado atual sem decrementar de
+          // novo — dois cliques não podem tirar duas cadeiras da vaga.
+          if (application.status === "withdrawn") throw new AlreadyWithdrawn();
+
+          if (application.attendance) throw new AttendanceExists();
+          if (application.jobPost.startsAt.getTime() <= Date.now()) {
+            throw new JobStarted();
+          }
+
+          const row = await tx.application.update({
+            where: { id: application.id },
+            data: {
+              status: "withdrawn",
+              // A confirmação de véspera morre junto: ela dizia "eu vou", e
+              // quem saiu não vai.
+              confirmedAt: null,
+            },
+          });
+
+          // A cadeira volta para a vaga, na MESMA transação.
+          await tx.jobPost.update({
+            where: { id: application.jobPostId },
+            data: { applicationsCount: { decrement: 1 } },
+          });
+
+          return row;
+        });
+
+        if (!updated) return notFound(reply, "Candidatura não encontrada.");
+        return reply.send(success(toApplication(updated)));
+      } catch (error) {
+        if (error instanceof AlreadyWithdrawn) {
+          return reply
+            .status(409)
+            .send(
+              failure("already_withdrawn", "Você já saiu desta candidatura."),
+            );
+        }
+        if (error instanceof AttendanceExists) {
+          return reply
+            .status(409)
+            .send(
+              failure(
+                "attendance_already_marked",
+                "A empresa já registrou como foi esta vaga.",
+              ),
+            );
+        }
+        if (error instanceof JobStarted) {
+          return reply
+            .status(409)
+            .send(
+              failure(
+                "job_already_started",
+                "Esta vaga já começou.",
+              ),
+            );
+        }
+        throw error;
+      }
+    },
+  );
+
 }
+
+/** Vaga que não recebe mais candidatura. Desfaz a transação e vira 409. */
 
 /** Vaga que não recebe mais candidatura. Desfaz a transação e vira 409. */
 class JobClosed extends Error {}

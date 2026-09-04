@@ -168,6 +168,11 @@ export type WorkerQuickRegistrationInput = z.infer<
  * A selfie e o vídeo ficam de fora porque o upload é a tarefa 25 — quem chega
  * sem eles termina o cadastro do mesmo jeito, e é isso que a regra da casa
  * manda: nunca travar (§16.1).
+ *
+ * NÃO é o que `POST /v1/workers` exige — isso é `workerMinimalCreateSchema`,
+ * abaixo. Este continua aqui, intacto, como a definição de "cadastro inteiro
+ * numa chamada": afrouxá-lo para servir a criação em etapas apagaria a única
+ * descrição que o repositório tem do conjunto completo.
  */
 export const workerCreateSchema = workerStep1IdentitySchema
   .extend(workerStep4ProfileSchema.shape)
@@ -194,3 +199,36 @@ export const cityNeighborsQuerySchema = z.object({
     .min(1, "Raio inválido")
     .max(100, "A vizinhança só vai até 100 km"),
 });
+
+/**
+ * POST /v1/workers — o MÍNIMO para a pessoa existir: quem ela é, onde mora e
+ * o aceite do termo. Nada além disso.
+ *
+ * O §16.1 promete progresso salvo a cada etapa, e progresso só se salva se a
+ * primeira etapa puder ser gravada sozinha. Exigir funções, disponibilidade e
+ * cidades de aviso na criação significa que uma queda de conexão na etapa 4
+ * joga fora o CPF já digitado — que é exatamente o esforço que a promessa
+ * existe para proteger.
+ *
+ * Separado de `workerCreateSchema` de propósito, e não derivado dele por
+ * `.partial()`: um `.partial()` afrouxaria também o que precisa continuar
+ * obrigatório quando o campo VEM. Aqui a lista é explícita, e o que entra
+ * depois entra pelo PATCH, com as regras da etapa dele.
+ *
+ * O bairro entra junto porque é o par da cidade: cidade sem bairro não
+ * localiza ninguém, e os dois saem da mesma tela.
+ *
+ * Status nasce `incomplete`, e `profileCompletedAt` fica nulo — o selo é o
+ * vídeo, e ele nem foi pedido ainda.
+ */
+export const workerMinimalCreateSchema = workerStep1IdentitySchema
+  .extend(workerTermsAcceptanceSchema.shape)
+  .extend({
+    cityId: cityIdSchema,
+    neighborhood: z.string().trim().min(1, "Informe o bairro"),
+  })
+  .strict();
+
+export type WorkerMinimalCreateInput = z.infer<
+  typeof workerMinimalCreateSchema
+>;

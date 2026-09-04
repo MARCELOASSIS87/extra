@@ -189,7 +189,82 @@ export async function loadWorkerProfiles(
       ...publicProfile,
       fullName: name ? `${name.firstName} ${name.lastName}` : null,
       availability: availabilityById.get(profile.id) ?? [],
+      isDeactivated: false,
     });
+  }
+
+  /**
+   * Quem a view NÃO devolveu, mas foi pedido: conta desativada pela própria
+   * pessoa depois de se candidatar (§7.3, regra 3).
+   *
+   * A view filtra `self_deactivated` e continua filtrando — quem desativou
+   * some da BUSCA. Mas a candidatura já aconteceu: sumir daqui levaria junto
+   * o `shortCode` que casa a conversa do WhatsApp, inclusive de alguém que a
+   * empresa já chamou. Então o item permanece, com o que ela já tinha, e
+   * marcado — a tela diz por que aquele perfil parou de atualizar, em vez de
+   * o candidato evaporar no meio do processo.
+   *
+   * Lê da tabela porque a view não alcança: `select` explícito, sem cpf, sem
+   * nascimento e sem `account` — as mesmas colunas que a view serviria.
+   */
+  const missing = workerIds.filter((id) => !publicById.has(id));
+  if (missing.length > 0) {
+    const rows = await prisma.worker.findMany({
+      where: { id: { in: missing } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        neighborhood: true,
+        experience: true,
+        introVideoKey: true,
+        profileCompletedAt: true,
+        createdAt: true,
+        city: { select: { name: true } },
+      },
+    });
+
+    for (const row of rows) {
+      const publicProfile: WorkerPublicProfile = {
+        id: row.id,
+        firstName: row.firstName,
+        // A mesma regra da view: a inicial da última palavra do sobrenome.
+        lastNameInitial: lastNameInitial(row.lastName),
+        cityName: row.city.name,
+        neighborhood: row.neighborhood,
+        roles: rolesById.get(row.id) ?? [],
+        experience: row.experience,
+        introVideoUrl: null,
+        introVideoPosterUrl: null,
+        hasCompleteProfile: row.profileCompletedAt !== null,
+        // Sem histórico novo: a conta parou. O que já foi registrado continua
+        // valendo, e vem da mesma view de agregado.
+        attendance: (() => {
+          const summary = summaryById.get(row.id);
+          return summary
+            ? {
+                present: Number(summary.present),
+                absent: Number(summary.absent),
+                distinctCompanies: Number(summary.distinct_companies),
+                hasHistory: summary.has_history,
+              }
+            : emptySummary;
+        })(),
+        memberSince: row.createdAt.toISOString(),
+      };
+
+      publicById.set(row.id, publicProfile);
+
+      // O portão do nome completo continua valendo igual: desativar não abre
+      // o que o contato ainda não abriu.
+      const name = nameById.get(row.id);
+      applicantById.set(row.id, {
+        ...publicProfile,
+        fullName: name ? `${name.firstName} ${name.lastName}` : null,
+        availability: availabilityById.get(row.id) ?? [],
+        isDeactivated: true,
+      });
+    }
   }
 
   return {
@@ -199,4 +274,20 @@ export async function loadWorkerProfiles(
       neighbors.map((row) => [row.worker_id, row.distance_km]),
     ),
   };
+}
+
+/**
+ * Primeiro caractere da ÚLTIMA palavra, descartando sufixo de geração — a
+ * mesma regra da view `worker_public_profiles`. Existe aqui só para o caminho
+ * da conta desativada, que não passa pela view.
+ */
+const GENERATION_SUFFIX =
+  /(^|\s+)(jr|j[uú]nior|neto|filho|sobrinho|segundo)\.?\s*$/i;
+
+function lastNameInitial(lastName: string): string {
+  let base = lastName.trim();
+  while (GENERATION_SUFFIX.test(base))
+    base = base.replace(GENERATION_SUFFIX, "");
+  const word = base.split(/\s+/).at(-1) ?? "";
+  return word ? `${word.charAt(0)}.` : "";
 }

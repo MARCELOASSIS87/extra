@@ -1,16 +1,13 @@
 import type { ApiResult } from "@extra/shared/types/api";
 import type { Worker } from "@extra/shared/types/worker";
 import {
+  workerMinimalCreateSchema,
   workerProfileUpdateSchema,
   workerQuickRegistrationSchema,
-  workerStep1IdentitySchema,
-  workerTermsAcceptanceSchema,
+  type WorkerMinimalCreateInput,
   type WorkerProfileUpdate,
   type WorkerQuickRegistrationInput,
-  type WorkerStep1Identity,
-  type WorkerTermsAcceptance,
 } from "@extra/shared/schemas/worker";
-import { DEFAULT_CITY_ID } from "./cities";
 import { getCurrentWorkerId, nowIso, randomId, store, withMock } from "./mock";
 import { isLiveMode, request } from "./http";
 import { err, ok } from "./result";
@@ -40,8 +37,14 @@ export async function getMyWorkerProfile(): Promise<ApiResult<Worker | null>> {
 }
 
 /**
- * POST /v1/workers — etapa 1 do cadastro. O bloqueio de menores de 18 anos
- * mora no schema compartilhado (§14.2), então vale aqui e na rota real.
+ * POST /v1/workers — a etapa 1 do cadastro: quem é a pessoa, onde mora e o
+ * aceite do termo. O bloqueio de menores de 18 anos mora no schema
+ * compartilhado (§14.2), então vale aqui e na rota real.
+ *
+ * Cidade e bairro entram JUNTO com a identidade, e não numa etapa depois: são
+ * o que localiza a pessoa, a âncora do raio de vizinhança e o padrão da
+ * primeira cidade de aviso (§16.2). O cadastro que nasce sem eles nasce sem
+ * conseguir rotear nada.
  *
  * O aceite do termo vem junto porque é ele que autoriza a existência do
  * cadastro: `termsVersion`, `termsAcceptedAt` e `termsAcceptedIp` não são
@@ -49,24 +52,14 @@ export async function getMyWorkerProfile(): Promise<ApiResult<Worker | null>> {
  * não pode é gravar a pessoa antes de ela consentir.
  */
 export async function createWorker(
-  input: WorkerStep1Identity & WorkerTermsAcceptance,
+  input: WorkerMinimalCreateInput,
 ): Promise<ApiResult<Worker>> {
-  // TODO: sem rota equivalente. `POST /v1/workers` exige o cadastro INTEIRO
-  // (identidade + perfil + cidade + preferências de aviso, `workerCreateSchema`
-  // é `.strict()`), enquanto esta função grava só a etapa 1 — o cadastro salva
-  // etapa a etapa para queda de conexão não zerar o esforço (§16.1). Mandar a
-  // etapa 1 sozinha para lá dá 400. Espera uma rota que aceite o parcial.
   if (isLiveMode) {
-    return err(
-      "not_implemented",
-      "Este cadastro ainda não está disponível.",
-    );
+    return request<Worker>("/v1/workers", { method: "POST", body: input });
   }
 
   return withMock(() => {
-    const parsed = workerStep1IdentitySchema
-      .extend(workerTermsAcceptanceSchema.shape)
-      .safeParse(input);
+    const parsed = workerMinimalCreateSchema.safeParse(input);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
       return err("validation_error", issue.message, issue.path.join("."));
@@ -83,11 +76,12 @@ export async function createWorker(
       phoneVerifiedAt: null,
       cpf: parsed.data.cpf,
       birthDate: parsed.data.birthDate,
-      cityId: DEFAULT_CITY_ID,
-      neighborhood: "",
-      // Nasce assinando a própria cidade e com o raio desligado: o padrão mais
-      // aberto que não gasta a permissão de notificar. A escolha é da S4.
-      notificationCityIds: [DEFAULT_CITY_ID],
+      cityId: parsed.data.cityId,
+      neighborhood: parsed.data.neighborhood,
+      // Nasce assinando a PRÓPRIA cidade — a que ela acabou de informar — e
+      // com o raio desligado: o padrão mais aberto que não gasta a permissão
+      // de notificar. A escolha continua editável em "meu perfil" (§16.2).
+      notificationCityIds: [parsed.data.cityId],
       nearbyRadiusKm: null,
       roles: [],
       experience: "",
@@ -122,8 +116,10 @@ export async function createWorker(
 export async function createWorkerQuick(
   input: WorkerQuickRegistrationInput,
 ): Promise<ApiResult<Worker>> {
-  // TODO: sem rota. Mesma razão de `createWorker`, mais uma: o cadastro
-  // reduzido não tem CPF, e `workerCreateSchema` o exige.
+  // TODO: sem rota. É a ÚNICA função da camada ainda sem endpoint. O cadastro
+  // reduzido não pede CPF — é o muro do "Quero essa vaga", onde exigir CPF é
+  // perder a pessoa — e `POST /v1/workers` exige. Espera `POST /v1/workers/quick`,
+  // com o mesmo mínimo menos o CPF e `status` preso em `incomplete`.
   if (isLiveMode) {
     return err(
       "not_implemented",
@@ -266,14 +262,8 @@ export async function updateMyWorkerProfile(
 
 /** O próprio usuário desativa a conta. Não existe desativação por terceiro. */
 export async function deactivateMyAccount(): Promise<ApiResult<Worker>> {
-  // TODO: sem rota. `PATCH /v1/workers/me` não aceita `status` — e não deve
-  // aceitar: desativar é ato do próprio dono, não um campo de perfil.
-  // Espera `POST /v1/workers/me/deactivate`.
   if (isLiveMode) {
-    return err(
-      "not_implemented",
-      "A desativação ainda não está disponível.",
-    );
+    return request<Worker>("/v1/workers/me/deactivate", { method: "POST" });
   }
 
   const workerId = await getCurrentWorkerId();

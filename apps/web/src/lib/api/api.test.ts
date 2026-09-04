@@ -534,6 +534,10 @@ async function main() {
   const accepted = {
     termsVersion: CURRENT_TERMS_VERSION,
     termsAccepted: true,
+    // Cidade e bairro entram na etapa 1 junto com a identidade: é o que
+    // localiza a pessoa e vira a primeira cidade de aviso (§16.2).
+    cityId: DEFAULT_CITY_ID,
+    neighborhood: "Centro",
   };
   const underage = new Date();
   underage.setUTCFullYear(underage.getUTCFullYear() - 16);
@@ -562,6 +566,11 @@ async function main() {
     ),
   );
   assert.equal(newWorker.status, "incomplete");
+  // Cidade e bairro informados na etapa 1 são gravados, e a cidade vira a
+  // primeira assinatura de aviso — sem isso o cadastro nasce sem rotear nada.
+  assert.equal(newWorker.cityId, DEFAULT_CITY_ID);
+  assert.equal(newWorker.neighborhood, "Centro");
+  assert.deepEqual(newWorker.notificationCityIds, [DEFAULT_CITY_ID]);
   assert.equal(newWorker.termsVersion, CURRENT_TERMS_VERSION);
   assert.ok(newWorker.termsAcceptedAt !== "", "aceite carimbado no servidor");
   assert.equal(newWorker.profileCompletedAt, null);

@@ -11,10 +11,10 @@ import type { ApiResult, Paginated } from "@extra/shared/types/api";
 import type { PublicJobPost } from "@extra/shared/types/job";
 import { maxApplicationsFor } from "@extra/shared/lib/job";
 import { prisma } from "../db.js";
-import { countRoutedWorkers } from "../routing.js";
+import { countRoutedWorkers, routedJobIdsForWorker } from "../routing.js";
 import { failure, success } from "../http.js";
 import { publicReadRateLimit } from "../rate-limit.js";
-import { requireCompany } from "../auth/session.js";
+import { requireCompany, requireWorker } from "../auth/session.js";
 import { jobReachCountQuerySchema } from "@extra/shared/schemas/job";
 
 /**
@@ -480,6 +480,119 @@ export function registerJobRoutes(app: FastifyInstance): void {
 
       const count = await countRoutedWorkers(parsed.data);
       return reply.send(success({ count }));
+    },
+  );
+
+  /**
+   * O feed do trabalhador (§16.2): as vagas abertas que o ALCANÇAM — cidade
+   * assinada ou dentro do raio dele, casando função e disponibilidade.
+   *
+   * É a MESMA regra do disparo do push, invertida, e por isso sai de
+   * `routing.ts` em vez de ser reescrita aqui: se as duas direções
+   * discordarem, o feed mostra vaga que nunca vai notificar, ou o push chega
+   * de vaga que não está na lista — e as duas fazem a pessoa concluir que o
+   * site está quebrado. O par tem teste de simetria próprio.
+   *
+   * Diferente de `/v1/jobs`, que é público e não olha token: aqui o recorte é
+   * a pessoa. Continua sem restringir CANDIDATURA — cidade assinada decide
+   * quem recebe AVISO; ver e se candidatar é livre (§16.2).
+   */
+  app.get(
+    "/v1/me/jobs",
+    { preHandler: requireWorker },
+    async (request, reply) => {
+      const workerId = request.workerId;
+      if (!workerId) {
+        return reply
+          .status(403)
+          .send(
+            failure("forbidden", "Esta área não está disponível nesta conta."),
+          );
+      }
+
+      const ids = await routedJobIdsForWorker(workerId);
+      if (ids.length === 0) {
+        const empty: Paginated<PublicJobPost> = {
+          items: [],
+          total: 0,
+          page: 1,
+          pageSize: JOBS_PAGE_SIZE,
+        };
+        return reply.send(success(empty));
+      }
+
+      const page = Math.max(1, Number((request.query as { page?: string }).page) || 1);
+
+      // A ordem é a da listagem pública: o próximo bico primeiro. Quem procura
+      // trabalho extra procura o que vem aí, não o que foi publicado ontem.
+      const [rows, total] = await Promise.all([
+        prisma.jobPost.findMany({
+          where: { id: { in: ids } },
+          include: jobInclude,
+          orderBy: { startsAt: "asc" },
+          skip: (page - 1) * JOBS_PAGE_SIZE,
+          take: JOBS_PAGE_SIZE,
+        }),
+        prisma.jobPost.count({ where: { id: { in: ids } } }),
+      ]);
+
+      const body: Paginated<PublicJobPost> = {
+        items: rows.map(toPublicJobPost),
+        total,
+        page,
+        pageSize: JOBS_PAGE_SIZE,
+      };
+      return reply.send(success(body));
+    },
+  );
+
+  /**
+   * Os bairros que têm vaga aberta AGORA, para o filtro da listagem. O filtro
+   * só oferece o que leva a algum resultado — bairro sem vaga é beco sem
+   * saída, e quem cai nele conclui que não há trabalho na região.
+   *
+   * Sai de um DISTINCT no banco, não da primeira página de `/v1/jobs`:
+   * derivar da página 1 esconderia o bairro cuja vaga caiu na página 2.
+   *
+   * `?city=` é o SLUG, igual à listagem — é o que a URL carrega. Sem ele, os
+   * bairros de todas as cidades, que é o que a busca sem cidade precisa.
+   */
+  app.get<{ Querystring: { city?: string } }>(
+    "/v1/jobs/neighborhoods",
+    { onRequest: publicReadRateLimit },
+    async (request, reply) => {
+      let cityId: string | undefined;
+      if (request.query.city) {
+        const city = await prisma.city.findUnique({
+          where: { slug: request.query.city },
+          select: { id: true },
+        });
+        // Slug que não existe é 404, nunca lista vazia — mesma regra da
+        // listagem: lista vazia por erro de digitação faz a pessoa concluir
+        // que não há vaga na cidade dela.
+        if (!city) {
+          return reply
+            .status(404)
+            .send(failure("city_not_found", "Cidade não encontrada.", "city"));
+        }
+        cityId = city.id;
+      }
+
+      const rows = await prisma.jobPost.findMany({
+        where: {
+          status: "open",
+          expiresAt: { gt: new Date() },
+          ...(cityId ? { cityId } : {}),
+        },
+        select: { neighborhood: true },
+        distinct: ["neighborhood"],
+      });
+
+      const body = rows
+        .map((row) => row.neighborhood)
+        .sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+      return reply.header("cache-control", LIST_CACHE).send(success(body));
     },
   );
 }

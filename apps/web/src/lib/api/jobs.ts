@@ -148,13 +148,12 @@ export async function listJobs(
 export async function listJobsForMe(
   pageSize = WORKER_HOME_PAGE_SIZE,
 ): Promise<ApiResult<Paginated<PublicJobPost>>> {
-  // TODO: sem rota. O roteamento do §16.2 — só as funções e as cidades que a
-  // pessoa assinou — depende das preferências dela, e `GET /v1/jobs` é rota
-  // pública que não olha o token. Montar isso no cliente exigiria uma chamada
-  // por cidade assinada, que é N+1 no 4G de quem está com dados contados.
-  // Espera `GET /v1/jobs/for-me`.
   if (isLiveMode) {
-    return err("not_implemented", "Esta lista ainda não está disponível.");
+    // A rota devolve a página inteira do servidor; a home mostra só uma
+    // prévia, então o corte de `pageSize` continua sendo do cliente.
+    const result = await request<Paginated<PublicJobPost>>("/v1/me/jobs");
+    if (!result.ok) return result;
+    return ok({ ...result.data, items: result.data.items.slice(0, pageSize) });
   }
 
   const workerId = await getCurrentWorkerId();
@@ -304,11 +303,9 @@ export async function getJobBySlug(
  * o que leva a algum resultado — bairro sem vaga vira beco sem saída.
  */
 export async function listOpenJobNeighborhoods(): Promise<ApiResult<string[]>> {
-  // TODO: sem rota. Os bairros COM vaga aberta agora, sobre a base inteira —
-  // derivar da primeira página de `/v1/jobs` daria um filtro que esconde
-  // bairro só porque a vaga dele caiu na página 2.
-  // Espera `GET /v1/jobs/neighborhoods`.
-  if (isLiveMode) return ok([]);
+  if (isLiveMode) {
+    return request<string[]>("/v1/jobs/neighborhoods");
+  }
 
   return withMock(() => {
     const neighborhoods = new Set(

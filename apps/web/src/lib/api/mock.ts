@@ -247,5 +247,8 @@ export function toApplicantProfile(
     // vindo do perfil público, então a tela nunca fica sem nome nenhum.
     fullName: contactedAt ? worker.fullName : null,
     availability: worker.availability,
+    // Desativou depois de se candidatar: o item permanece na lista da empresa,
+    // marcado (§7.3). Some da BUSCA, não do processo já em andamento.
+    isDeactivated: worker.status === "self_deactivated",
   };
 }

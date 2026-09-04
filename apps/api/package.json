@@ -11,7 +11,7 @@
     "build": "pnpm -F @extra/shared build && tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.seed.json",
-    "test": "tsx src/auth.test.ts && tsx src/constraints.test.ts && tsx src/jobs.test.ts && tsx src/jobs-write.test.ts && tsx src/applications.test.ts && tsx src/attendance.test.ts && tsx src/workers.test.ts && tsx src/companies.test.ts && tsx src/panel.test.ts",
+    "test": "tsx src/auth.test.ts && tsx src/constraints.test.ts && tsx src/jobs.test.ts && tsx src/jobs-write.test.ts && tsx src/applications.test.ts && tsx src/attendance.test.ts && tsx src/workers.test.ts && tsx src/companies.test.ts && tsx src/panel.test.ts && tsx src/symmetry.test.ts && tsx src/worker-writes.test.ts",
     "seed": "tsx prisma/seed.ts",
     "token": "tsx scripts/token.ts"
   },

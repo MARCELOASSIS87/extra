@@ -61,17 +61,17 @@ function makeCpf(): string {
   return `${base}${first}${second}`;
 }
 
+/**
+ * O corpo MÍNIMO da criação (§16.1): quem é a pessoa, onde mora e o aceite.
+ * Funções, disponibilidade, cidades de aviso e raio não entram mais aqui —
+ * chegam por PATCH, e os testes dos limites deles foram junto.
+ */
 const validBody = (overrides: Record<string, unknown> = {}) => ({
   fullName: "Ana Paula Ferreira",
   cpf: makeCpf(),
   birthDate: "1995-04-12",
   cityId: POCOS,
   neighborhood: "Centro",
-  roles: ["garcom"],
-  experience: "Cinco anos atendendo mesa em formatura.",
-  availability: [{ weekday: 6, period: "night" }],
-  notificationCityIds: [POCOS],
-  nearbyRadiusKm: null,
   termsVersion: CURRENT_TERMS_VERSION,
   termsAccepted: true,
   ...overrides,
@@ -81,6 +81,22 @@ const create = (token: string, body: unknown) =>
   app.inject({
     method: "POST",
     url: "/v1/workers",
+    headers: { authorization: `Bearer ${token}` },
+    payload: body as Record<string, unknown>,
+  });
+
+/** Cria o cadastro mínimo e devolve o token, para os testes que editam. */
+async function createdWorker(): Promise<string> {
+  const account = await makeAccount();
+  const response = await create(account.token, validBody());
+  assert.equal(response.statusCode, 201);
+  return account.token;
+}
+
+const patch = (token: string, url: string, body: unknown) =>
+  app.inject({
+    method: "PATCH",
+    url,
     headers: { authorization: `Bearer ${token}` },
     payload: body as Record<string, unknown>,
   });
@@ -109,26 +125,32 @@ async function testMinorIsRejected(): Promise<void> {
   );
 }
 
-/** b) Seis funções: 400. O teto de 5 é do §7.3. */
+/**
+ * b) Seis funções: 400. O teto de 5 é do §7.3, e continua valendo — mudou a
+ * PORTA: as funções chegam por PATCH, porque a criação virou o mínimo.
+ */
 async function testSixRolesRejected(): Promise<void> {
-  const account = await makeAccount();
-  const response = await create(
-    account.token,
-    validBody({
-      roles: [
-        "garcom",
-        "barman",
-        "cozinheiro",
-        "auxiliar_cozinha",
-        "auxiliar_limpeza",
-        "recepcionista",
-      ],
-    }),
-  );
+  const token = await createdWorker();
+  const response = await patch(token, "/v1/workers/me", {
+    roles: [
+      "garcom",
+      "barman",
+      "cozinheiro",
+      "auxiliar_cozinha",
+      "auxiliar_limpeza",
+      "recepcionista",
+    ],
+  });
 
   assert.equal(response.statusCode, 400);
   assert.equal(response.json().error.field, "roles");
-  assert.equal(await workerCount(), 0);
+  assert.equal(
+    await prisma.workerRole.count({
+      where: { worker: { cpf: { startsWith: CPF_PREFIX } } },
+    }),
+    0,
+    "nenhuma função pode ter sido gravada",
+  );
 }
 
 /**
@@ -137,41 +159,52 @@ async function testSixRolesRejected(): Promise<void> {
  * reclama, some.
  */
 async function testNotificationCityBounds(): Promise<void> {
-  const tooMany = await makeAccount();
-  const six = await create(
-    tooMany.token,
-    validBody({
-      notificationCityIds: [
-        POCOS,
-        ANDRADAS,
-        "3105301",
-        "3110301",
-        "3549102",
-        "3153905",
-      ],
-    }),
-  );
+  const tooMany = await createdWorker();
+  const six = await patch(tooMany, "/v1/workers/me/notifications", {
+    notificationCityIds: [
+      POCOS,
+      ANDRADAS,
+      "3105301",
+      "3110301",
+      "3549102",
+      "3153905",
+    ],
+    nearbyRadiusKm: null,
+  });
   assert.equal(six.statusCode, 400);
   assert.equal(six.json().error.field, "notificationCityIds");
 
-  const none = await makeAccount();
-  const zero = await create(none.token, validBody({ notificationCityIds: [] }));
+  const none = await createdWorker();
+  const zero = await patch(none, "/v1/workers/me/notifications", {
+    notificationCityIds: [],
+    nearbyRadiusKm: null,
+  });
   assert.equal(zero.statusCode, 400);
   assert.equal(zero.json().error.field, "notificationCityIds");
 
-  assert.equal(await workerCount(), 0);
+  assert.equal(
+    await prisma.workerNotificationCity.count({
+      where: { worker: { cpf: { startsWith: CPF_PREFIX } } },
+    }),
+    0,
+    "nenhuma cidade de aviso pode ter sido gravada",
+  );
 }
 
 /** d) Raio 100: 400. Valores fechados em 25 ou 50, nunca campo livre. */
 async function testRadiusIsClosedSet(): Promise<void> {
-  const account = await makeAccount();
-  const response = await create(
-    account.token,
-    validBody({ nearbyRadiusKm: 100 }),
-  );
+  const token = await createdWorker();
+  const response = await patch(token, "/v1/workers/me/notifications", {
+    notificationCityIds: [POCOS],
+    nearbyRadiusKm: 100,
+  });
 
   assert.equal(response.statusCode, 400);
-  assert.equal(await workerCount(), 0);
+  const saved = await prisma.worker.findFirstOrThrow({
+    where: { cpf: { startsWith: CPF_PREFIX } },
+    select: { nearbyRadiusKm: true },
+  });
+  assert.equal(saved.nearbyRadiusKm, null, "o raio inválido não pode gravar");
 }
 
 /**

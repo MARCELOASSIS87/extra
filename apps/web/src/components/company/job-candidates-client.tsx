@@ -13,6 +13,8 @@ import { WorkerAttendanceSummary } from "@/components/company/worker-attendance-
 import {
   candidateDisplayName,
   candidateNameHint,
+  DEACTIVATED_HINT,
+  DEACTIVATED_LABEL,
 } from "@/lib/candidate-name";
 
 type Candidates = Awaited<ReturnType<typeof listJobCandidates>>;
@@ -120,6 +122,11 @@ export function JobCandidatesClient({ jobId }: { jobId: string }) {
                       Código {application.shortCode}
                     </span>
                   </div>
+                  {worker.isDeactivated && (
+                    <p className="text-muted-foreground mt-0.5 text-xs">
+                      {DEACTIVATED_LABEL} · {DEACTIVATED_HINT}
+                    </p>
+                  )}
                   {!revealed[application.id] && candidateNameHint(worker) && (
                     <p className="text-muted-foreground mt-0.5 text-xs">
                       {candidateNameHint(worker)}

@@ -96,3 +96,74 @@ export async function routedWorkerIds(job: RoutingTarget): Promise<string[]> {
 export async function countRoutedWorkers(job: RoutingTarget): Promise<number> {
   return (await routedWorkerIds(job)).length;
 }
+
+/**
+ * A MESMA regra do §16.2, na direção contrária: dado um trabalhador, quais
+ * vagas o alcançam. É o feed dele (`GET /v1/me/jobs`).
+ *
+ * Vive neste arquivo, coladinha na de cima, porque as duas TÊM que concordar:
+ * se discordarem, o feed mostra vaga que nunca vai notificar, ou o push chega
+ * de vaga que não está na lista — e as duas fazem a pessoa concluir que o site
+ * está quebrado. Um teste de simetria trava esse par (`symmetry.test.ts`).
+ *
+ * Os cinco predicados são os mesmos, na mesma ordem: função, disponibilidade,
+ * cidade assinada OU raio, e o alcance da empresa filtrando só quem chega
+ * pelo raio. O que muda é de que lado vem a constante.
+ *
+ * O dia e o período saem do `starts_at` de CADA vaga, e por isso são
+ * calculados no SQL — `AT TIME ZONE 'America/Sao_Paulo'`, os mesmos cortes de
+ * `jobAvailabilitySlot` (manhã < 12h, tarde < 18h, noite o resto). É a única
+ * duplicação da regra, e é inevitável: do outro lado a vaga é uma só e o slot
+ * cabe em TypeScript; aqui são N vagas por consulta, e trazer todas para
+ * filtrar em memória seria ler a tabela inteira. O teste de simetria é o que
+ * garante que os dois cortes continuam dando a mesma resposta.
+ */
+export async function routedJobIdsForWorker(
+  workerId: string,
+): Promise<string[]> {
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT DISTINCT j.id
+      FROM job_posts j
+      JOIN workers w
+        ON w.id = ${workerId}::uuid AND w.status = 'complete'
+      JOIN worker_roles wr
+        ON wr.worker_id = w.id AND wr.role = j.role
+      JOIN worker_availability wa
+        ON wa.worker_id = w.id
+       AND wa.weekday = EXTRACT(
+             DOW FROM j.starts_at AT TIME ZONE 'America/Sao_Paulo'
+           )::int
+       AND wa.period = (
+             CASE
+               WHEN EXTRACT(
+                      HOUR FROM j.starts_at AT TIME ZONE 'America/Sao_Paulo'
+                    ) < 12 THEN 'morning'
+               WHEN EXTRACT(
+                      HOUR FROM j.starts_at AT TIME ZONE 'America/Sao_Paulo'
+                    ) < 18 THEN 'afternoon'
+               ELSE 'night'
+             END
+           )::"AvailabilityPeriod"
+      LEFT JOIN worker_notification_cities wnc
+        ON wnc.worker_id = w.id AND wnc.city_id = j.city_id
+      LEFT JOIN city_neighbors cn
+        ON cn.city_id = w.city_id
+       AND cn.neighbor_city_id = j.city_id
+       AND cn.distance_km <= w.nearby_radius_km
+     WHERE j.status = 'open'
+       AND j.expires_at > now()
+       AND (
+             wnc.city_id IS NOT NULL
+             OR (
+               cn.neighbor_city_id IS NOT NULL
+               AND (
+                     j.reach = 'unrestricted'
+                  OR (j.reach = 'city_only' AND w.city_id = j.city_id)
+                  OR (j.reach = 'nearby'
+                      AND cn.distance_km <= COALESCE(j.reach_radius_km, 0))
+               )
+             )
+           )`;
+
+  return rows.map((row) => row.id);
+}

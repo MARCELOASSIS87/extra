@@ -2,10 +2,11 @@ import { Prisma } from "@prisma/client";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { workerNotificationPreferencesSchema } from "@extra/shared/schemas/city";
 import {
-  workerCreateSchema,
+  workerMinimalCreateSchema,
   workerProfileUpdateSchema,
 } from "@extra/shared/schemas/worker";
 import type { Worker } from "@extra/shared/types/worker";
+import { resolveWorkerStatus } from "@extra/shared/lib/worker";
 import { prisma } from "../db.js";
 import { failure, success } from "../http.js";
 import { requireAccount, requireWorker } from "../auth/session.js";
@@ -105,7 +106,7 @@ export function registerWorkerRoutes(app: FastifyInstance): void {
       const account = request.account;
       if (!account) return forbidden(reply);
 
-      const parsed = workerCreateSchema.safeParse(request.body);
+      const parsed = workerMinimalCreateSchema.safeParse(request.body);
       if (!parsed.success) {
         const issue = parsed.error.issues[0];
         return reply
@@ -136,23 +137,6 @@ export function registerWorkerRoutes(app: FastifyInstance): void {
           );
       }
 
-      // As cidades de aviso também vêm da tabela: id bem-formado que não
-      // existe viraria assinatura para uma cidade que nunca publica vaga.
-      const known = await prisma.city.count({
-        where: { id: { in: data.notificationCityIds } },
-      });
-      if (known !== data.notificationCityIds.length) {
-        return reply
-          .status(400)
-          .send(
-            failure(
-              "city_not_found",
-              "Escolha as cidades de aviso na lista.",
-              "notificationCityIds",
-            ),
-          );
-      }
-
       try {
         const created = await prisma.worker.create({
           data: {
@@ -162,19 +146,18 @@ export function registerWorkerRoutes(app: FastifyInstance): void {
             birthDate: new Date(`${data.birthDate}T00:00:00Z`),
             cityId: city.id,
             neighborhood: data.neighborhood,
-            nearbyRadiusKm: data.nearbyRadiusKm,
-            experience: data.experience,
+            // Funções, disponibilidade, cidades de aviso, selfie e vídeo NÃO
+            // entram aqui: o cadastro salva etapa a etapa (§16.1), e cada uma
+            // chega depois por `PATCH /v1/workers/me`, com as regras da etapa
+            // dela. Nasce `incomplete`, sem selo, e recebendo nada — a
+            // primeira assinatura de cidade é escolha da pessoa (§16.2).
+            experience: "",
             status: "incomplete",
             termsVersion: data.termsVersion,
             // Data e IP são do SERVIDOR: o cliente não sabe o próprio IP e não
             // deveria escolher a hora do consentimento (§7.3).
             termsAcceptedAt: new Date(),
             termsAcceptedIp: request.ip,
-            roles: { create: data.roles.map((role) => ({ role })) },
-            availability: { create: data.availability },
-            notificationCities: {
-              create: data.notificationCityIds.map((cityId) => ({ cityId })),
-            },
           },
           include: workerInclude,
         });
@@ -300,6 +283,44 @@ export function registerWorkerRoutes(app: FastifyInstance): void {
             data: data.availability.map((slot) => ({ workerId, ...slot })),
           });
         }
+
+        // O cadastro salva etapa a etapa, então é AQUI que ele deixa de ser
+        // `incomplete` — lido depois da escrita, sobre o estado já mesclado,
+        // e nunca sobre o que veio no corpo: o PATCH é parcial, e decidir
+        // pelo payload concluiria o cadastro de quem mandou uma etapa só.
+        const merged = await tx.worker.findUniqueOrThrow({
+          where: { id: workerId },
+          select: {
+            documentSelfieKey: true,
+            introVideoKey: true,
+            neighborhood: true,
+            status: true,
+            profileCompletedAt: true,
+            roles: { select: { role: true } },
+            availability: { select: { weekday: true } },
+          },
+        });
+
+        const resolved = resolveWorkerStatus({
+          documentSelfieKey: merged.documentSelfieKey,
+          introVideoKey: merged.introVideoKey,
+          neighborhood: merged.neighborhood,
+          roles: merged.roles,
+          availability: merged.availability,
+          currentStatus: merged.status,
+          currentProfileCompletedAt:
+            merged.profileCompletedAt?.toISOString() ?? null,
+        });
+
+        await tx.worker.update({
+          where: { id: workerId },
+          data: {
+            status: resolved.status,
+            profileCompletedAt: resolved.profileCompletedAt
+              ? new Date(resolved.profileCompletedAt)
+              : null,
+          },
+        });
       });
 
       const worker = await loadWorker(workerId, request.account.phone);
@@ -361,6 +382,93 @@ export function registerWorkerRoutes(app: FastifyInstance): void {
           where: { id: workerId },
           data: { nearbyRadiusKm },
         });
+      });
+
+      const worker = await loadWorker(workerId, request.account.phone);
+      if (!worker) return forbidden(reply);
+      return reply.send(success(worker));
+    },
+  );
+
+  /**
+   * Desativar a própria conta (regra 3 do CLAUDE.md). SÓ o dono faz isso —
+   * não existe rota para desativar terceiro, nem campo de status no PATCH de
+   * perfil: desativar é um ATO, não a edição de um campo.
+   *
+   * NÃO é exclusão. O cadastro continua no banco, a candidatura antiga
+   * continua valendo para a empresa que já a recebeu, e a pessoa volta quando
+   * quiser por `/reactivate`. Exclusão de conta — com LGPD, MinIO e
+   * anonimização — é a tarefa 25 (§13.1).
+   *
+   * O efeito são dois: some da busca pública (a view
+   * `worker_public_profiles` filtra `self_deactivated`) e para de receber
+   * aviso (o roteamento do §16.2 só considera `complete`).
+   */
+  app.post(
+    "/v1/workers/me/deactivate",
+    { preHandler: requireWorker },
+    async (request, reply) => {
+      const workerId = request.workerId;
+      if (!workerId || !request.account) return forbidden(reply);
+
+      await prisma.worker.update({
+        where: { id: workerId },
+        data: { status: "self_deactivated" },
+      });
+
+      const worker = await loadWorker(workerId, request.account.phone);
+      if (!worker) return forbidden(reply);
+      return reply.send(success(worker));
+    },
+  );
+
+  /**
+   * Voltar. A conta desativada não perdeu nada: o cadastro estava inteiro no
+   * banco, então reativar devolve o estado que ela tinha — inclusive o selo,
+   * se o vídeo continua lá.
+   *
+   * O status para onde ela volta é RECALCULADO, não guardado: quem desativou
+   * com cadastro pela metade volta `incomplete`, e é a mesma função que
+   * decide isso em qualquer PATCH.
+   */
+  app.post(
+    "/v1/workers/me/reactivate",
+    { preHandler: requireWorker },
+    async (request, reply) => {
+      const workerId = request.workerId;
+      if (!workerId || !request.account) return forbidden(reply);
+
+      const current = await prisma.worker.findUniqueOrThrow({
+        where: { id: workerId },
+        select: {
+          documentSelfieKey: true,
+          introVideoKey: true,
+          neighborhood: true,
+          profileCompletedAt: true,
+          roles: { select: { role: true } },
+          availability: { select: { weekday: true } },
+        },
+      });
+
+      const resolved = resolveWorkerStatus({
+        ...current,
+        roles: current.roles,
+        availability: current.availability,
+        // `incomplete` e não o status atual: é o que faz a função recalcular
+        // em vez de devolver `self_deactivated` para sempre.
+        currentStatus: "incomplete",
+        currentProfileCompletedAt:
+          current.profileCompletedAt?.toISOString() ?? null,
+      });
+
+      await prisma.worker.update({
+        where: { id: workerId },
+        data: {
+          status: resolved.status,
+          profileCompletedAt: resolved.profileCompletedAt
+            ? new Date(resolved.profileCompletedAt)
+            : null,
+        },
       });
 
       const worker = await loadWorker(workerId, request.account.phone);

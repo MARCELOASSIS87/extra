@@ -7,7 +7,10 @@ import { JOB_ROLE_LABELS } from "@extra/shared/constants/job-roles";
 import type { listAttendancePending } from "@/lib/api/attendance";
 import { AttendanceMarkButtons } from "@/components/company/attendance-mark-buttons";
 import { formatJobDate, formatTimeRange } from "@/lib/format";
-import { candidateDisplayName } from "@/lib/candidate-name";
+import {
+  candidateDisplayName,
+  DEACTIVATED_LABEL,
+} from "@/lib/candidate-name";
 
 /**
  * Derivado do retorno de `listAttendancePending()`, não redeclarado: forma de
@@ -60,6 +63,11 @@ export function AttendancePendingList({ items }: { items: PendingItem[] }) {
                 <p className="text-muted-foreground mt-0.5 text-xs">
                   {JOB_ROLE_LABELS[item.job.role]}
                 </p>
+                {item.worker.isDeactivated && (
+                  <p className="text-muted-foreground mt-0.5 text-xs">
+                    {DEACTIVATED_LABEL}
+                  </p>
+                )}
               </div>
               <span className="bg-secondary text-secondary-foreground shrink-0 rounded-md px-2 py-1 text-xs font-medium">
                 Código {item.shortCode}

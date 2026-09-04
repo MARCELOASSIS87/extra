@@ -268,10 +268,11 @@ export async function confirmApplication(
 export async function withdrawApplication(
   id: string,
 ): Promise<ApiResult<Application>> {
-  // TODO: sem rota. Retirar candidatura não tem endpoint — só confirmar.
-  // Espera `POST /v1/applications/:id/withdraw`.
   if (isLiveMode) {
-    return err("not_implemented", "Ainda não é possível retirar por aqui.");
+    return request<Application>(
+      `/v1/applications/${encodeURIComponent(id)}/withdraw`,
+      { method: "POST" },
+    );
   }
 
   const workerId = await getCurrentWorkerId();

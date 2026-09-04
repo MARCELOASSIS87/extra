@@ -425,8 +425,8 @@ export function registerCompanyRoutes(app: FastifyInstance): void {
         const worker = application.workerId
           ? publicById.get(application.workerId)
           : undefined;
-        // Sem perfil na view: conta desativada. Some da fila em vez de
-        // aparecer pela metade.
+        // Conta desativada continua aparecendo, marcada. O que sobra aqui é
+        // candidatura anonimizada por exclusão de conta (§13.1).
         if (!worker) return [];
         return [
           {
